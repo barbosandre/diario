@@ -81,20 +81,42 @@ async function init(user) {
     await loadEntryForDate(user, datePicker.value);
   });
 
-  // Salvar diário (CORRIGIDO)
+  // ========================
+  // SALVAR DIÁRIO (UX COMPLETA)
+  // ========================
   saveBtn.onclick = async () => {
-    status.textContent = "Salvando...";
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Salvando...";
+    status.textContent = "Salvando diário...";
+    textarea.style.border = "";
 
-    await saveEntryForDate(user, datePicker.value, textarea.value);
+    try {
+      await saveEntryForDate(user, datePicker.value, textarea.value);
 
-    // 🔁 RELOAD REAL DO BACKEND
-    await loadEntryForDate(user, datePicker.value);
+      // 🔁 Recarrega do Firestore (fonte da verdade)
+      await loadEntryForDate(user, datePicker.value);
 
-    status.textContent = "Diário salvo com sucesso ✔";
-    setTimeout(() => (status.textContent = ""), 3000);
+      // ✅ Feedback visual forte
+      saveBtn.textContent = "Salvo ✔";
+      status.textContent = "Diário salvo com sucesso ✔";
+      textarea.style.border = "2px solid #4caf50";
 
-    const [year, month] = datePicker.value.split("-").map(Number);
-    await renderCalendar(user, year, month);
+      setTimeout(() => {
+        saveBtn.textContent = "Salvar diário";
+        status.textContent = "";
+        textarea.style.border = "";
+      }, 2500);
+
+      const [year, month] = datePicker.value.split("-").map(Number);
+      await renderCalendar(user, year, month);
+
+    } catch (err) {
+      console.error(err);
+      status.textContent = "Erro ao salvar. Tente novamente.";
+      saveBtn.textContent = "Salvar diário";
+    } finally {
+      saveBtn.disabled = false;
+    }
   };
 }
 
@@ -105,7 +127,7 @@ async function loadEntryForDate(user, dateStr) {
   const textarea = document.getElementById("diary");
   const past = document.getElementById("past");
 
-  // 🔴 RESET TOTAL DE ESTADO (ANTI-VAZAMENTO)
+  // 🔴 RESET TOTAL DE ESTADO
   textarea.value = "";
   past.innerHTML = "<h2>Neste dia em outros anos</h2>";
 
