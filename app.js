@@ -1,4 +1,6 @@
+// ========================
 // Firebase imports
+// ========================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import {
   getAuth,
@@ -18,7 +20,9 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
+// ========================
 // Firebase config
+// ========================
 const firebaseConfig = {
   apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
   authDomain: "diario-40d9e.firebaseapp.com",
@@ -29,16 +33,22 @@ const firebaseConfig = {
   measurementId: "G-SLGTSXX5QN"
 };
 
+// ========================
 // Init Firebase
+// ========================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore();
 
+// ========================
 // Elements
+// ========================
 const loginBtn = document.getElementById("login");
 const appEl = document.getElementById("app");
 
+// ========================
 // Login
+// ========================
 loginBtn.onclick = async () => {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
@@ -92,7 +102,9 @@ async function loadEntryForDate(user, dateStr) {
   const textarea = document.getElementById("diary");
   const past = document.getElementById("past");
 
+  // 🔴 RESET VISUAL (correção do bug)
   textarea.value = "";
+
   past.innerHTML = "<h2>Neste dia em outros anos</h2>";
 
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -103,6 +115,7 @@ async function loadEntryForDate(user, dateStr) {
   const ref = doc(db, "entries", `${user.uid}_${dateStr}`);
   const snap = await getDoc(ref);
 
+  // Preenche somente se existir
   if (snap.exists()) {
     textarea.value = snap.data().text || "";
   }
