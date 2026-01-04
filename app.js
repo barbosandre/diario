@@ -1,93 +1,99 @@
+// Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, collection, query, where, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import {
+  getAuth,
+  signInWithPopup,
+  GoogleAuthProvider
+} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
- const firebaseConfig = {
-    apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
-    authDomain: "diario-40d9e.firebaseapp.com",
-    projectId: "diario-40d9e",
-    storageBucket: "diario-40d9e.firebasestorage.app",
-    messagingSenderId: "39169574766",
-    appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
-    measurementId: "G-SLGTSXX5QN"
-  };
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
+  authDomain: "diario-40d9e.firebaseapp.com",
+  projectId: "diario-40d9e",
+  storageBucket: "diario-40d9e.firebasestorage.app",
+  messagingSenderId: "39169574766",
+  appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
+  measurementId: "G-SLGTSXX5QN"
+};
 
+// Init Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore();
 
+// Elements
 const loginBtn = document.getElementById("login");
 const appEl = document.getElementById("app");
 
+// Login
 loginBtn.onclick = async () => {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
+
   loginBtn.hidden = true;
   appEl.hidden = false;
+
   init(result.user);
 };
 
+// ========================
+// INIT
+// ========================
 async function init(user) {
   const datePicker = document.getElementById("datePicker");
   const textarea = document.getElementById("diary");
+  const saveBtn = document.getElementById("saveBtn");
+  const status = document.getElementById("status");
 
   const today = new Date().toISOString().split("T")[0];
+
   datePicker.max = today;
   datePicker.value = today;
 
   await loadEntryForDate(user, today);
-
   renderCalendar(user, new Date().getFullYear(), new Date().getMonth() + 1);
 
+  // Troca de data
   datePicker.addEventListener("change", async () => {
     await loadEntryForDate(user, datePicker.value);
   });
 
-  textarea.addEventListener("input", async () => {
+  // Salvar diário
+  saveBtn.onclick = async () => {
+    status.textContent = "Salvando...";
+
     await saveEntryForDate(user, datePicker.value, textarea.value);
-  });
+
+    status.textContent = "Diário salvo com sucesso ✔";
+    setTimeout(() => (status.textContent = ""), 3000);
+
+    const [year, month] = datePicker.value.split("-").map(Number);
+    renderCalendar(user, year, month);
+  };
 }
 
-
-async function saveEntry(uid, ref, day, month, year, text) {
-  await setDoc(ref, {
-    userId: uid,
-    day,
-    month,
-    year,
-    text,
-    updatedAt: serverTimestamp()
-  }, { merge: true });
-}
-
-async function loadPastMemories(uid, day, month, year) {
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", uid),
-    where("day", "==", day),
-    where("month", "==", month),
-    where("year", "<", year),
-    orderBy("year", "desc")
-  );
-
-  const snapshot = await getDocs(q);
-  const past = document.getElementById("past");
-
-  snapshot.forEach(doc => {
-    const e = doc.data();
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `
-      <strong>${e.day}/${e.month}/${e.year}</strong>
-      <p>${e.text}</p>
-    `;
-    past.appendChild(div);
-  });
-}
-
+// ========================
+// LOAD ENTRY FOR DATE
+// ========================
 async function loadEntryForDate(user, dateStr) {
   const textarea = document.getElementById("diary");
+  const past = document.getElementById("past");
+
   textarea.value = "";
+  past.innerHTML = "<h2>Neste dia em outros anos</h2>";
 
   const [year, month, day] = dateStr.split("-").map(Number);
 
@@ -101,13 +107,15 @@ async function loadEntryForDate(user, dateStr) {
     textarea.value = snap.data().text || "";
   }
 
-  document.getElementById("past").innerHTML =
-    "<h2>Neste dia em outros anos</h2>";
-
   loadPastMemories(user.uid, day, month, year);
 }
 
+// ========================
+// SAVE ENTRY
+// ========================
 async function saveEntryForDate(user, dateStr, text) {
+  if (!text.trim()) return;
+
   const [year, month, day] = dateStr.split("-").map(Number);
 
   const ref = doc(db, "entries", `${user.uid}_${dateStr}`);
@@ -122,6 +130,37 @@ async function saveEntryForDate(user, dateStr, text) {
   }, { merge: true });
 }
 
+// ========================
+// PAST MEMORIES
+// ========================
+async function loadPastMemories(uid, day, month, year) {
+  const q = query(
+    collection(db, "entries"),
+    where("userId", "==", uid),
+    where("day", "==", day),
+    where("month", "==", month),
+    where("year", "<", year),
+    orderBy("year", "desc")
+  );
+
+  const snapshot = await getDocs(q);
+  const past = document.getElementById("past");
+
+  snapshot.forEach(docSnap => {
+    const e = docSnap.data();
+    const div = document.createElement("div");
+    div.className = "card";
+    div.innerHTML = `
+      <strong>${e.day}/${e.month}/${e.year}</strong>
+      <p>${e.text}</p>
+    `;
+    past.appendChild(div);
+  });
+}
+
+// ========================
+// CALENDAR
+// ========================
 async function renderCalendar(user, year, month) {
   const cal = document.getElementById("calendar");
   cal.innerHTML = "";
@@ -143,7 +182,8 @@ async function renderCalendar(user, year, month) {
   const lastDay = new Date(year, month, 0).getDate();
 
   for (let day = 1; day <= lastDay; day++) {
-    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dateStr =
+      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
     const btn = document.createElement("button");
     btn.textContent = day;
