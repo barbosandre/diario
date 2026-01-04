@@ -15,13 +15,14 @@ import {
 
 /* 🔥 CONFIG FIREBASE */
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "SEU_PROJETO.firebaseapp.com",
-  projectId: "SEU_PROJETO",
-  storageBucket: "SEU_PROJETO.appspot.com",
-  messagingSenderId: "XXXXX",
-  appId: "XXXXX"
-};
+    apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
+    authDomain: "diario-40d9e.firebaseapp.com",
+    projectId: "diario-40d9e",
+    storageBucket: "diario-40d9e.firebasestorage.app",
+    messagingSenderId: "39169574766",
+    appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
+    measurementId: "G-SLGTSXX5QN"
+  };;
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth();
