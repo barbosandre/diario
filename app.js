@@ -221,23 +221,31 @@ async function renderCalendar() {
   const totalDays = lastDay.getDate();
   const startWeekDay = firstDay.getDay();
 
-  const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${totalDays}`;
+  let filledDates = new Set();
 
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", currentUser.uid),
-    where("date", ">=", startDate),
-    where("date", "<=", endDate)
-  );
+  try {
+    const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${totalDays}`;
 
-  const snap = await getDocs(q);
-  const filledDates = new Set(snap.docs.map(d => d.data().date));
+    const q = query(
+      collection(db, "entries"),
+      where("userId", "==", currentUser.uid),
+      where("date", ">=", startDate),
+      where("date", "<=", endDate)
+    );
 
+    const snap = await getDocs(q);
+    filledDates = new Set(snap.docs.map(d => d.data().date));
+  } catch (err) {
+    console.warn("⚠️ Calendário sem marcações (índice não criado ainda)");
+  }
+
+  // Espaços vazios antes do dia 1
   for (let i = 0; i < startWeekDay; i++) {
     calendarEl.appendChild(document.createElement("div"));
   }
 
+  // Dias do mês
   for (let day = 1; day <= totalDays; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     const div = document.createElement("div");
