@@ -22,7 +22,12 @@ const firebaseConfig = {
     messagingSenderId: "39169574766",
     appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
     measurementId: "G-SLGTSXX5QN"
-  };;
+  };
+ 
+ const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore();
+
 /* 📌 ELEMENTOS */
 const loginBtn = document.getElementById("login");
 const appEl = document.getElementById("app");
