@@ -1,12 +1,5 @@
-// ========================
-// Firebase imports
-// ========================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import {
-  getAuth,
-  signInWithPopup,
-  GoogleAuthProvider
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import {
   getFirestore,
   doc,
@@ -20,217 +13,124 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
-// ========================
-// Firebase config
-// ========================
+/* 🔥 CONFIG FIREBASE */
 const firebaseConfig = {
-  apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
-  authDomain: "diario-40d9e.firebaseapp.com",
-  projectId: "diario-40d9e",
-  storageBucket: "diario-40d9e.firebasestorage.app",
-  messagingSenderId: "39169574766",
-  appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
-  measurementId: "G-SLGTSXX5QN"
+  apiKey: "SUA_API_KEY",
+  authDomain: "SEU_PROJETO.firebaseapp.com",
+  projectId: "SEU_PROJETO",
+  storageBucket: "SEU_PROJETO.appspot.com",
+  messagingSenderId: "XXXXX",
+  appId: "XXXXX"
 };
 
-// ========================
-// Init Firebase
-// ========================
 const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore();
 
-// ========================
-// Elements
-// ========================
+/* 📌 ELEMENTOS */
 const loginBtn = document.getElementById("login");
 const appEl = document.getElementById("app");
+const diary = document.getElementById("diary");
+const datePicker = document.getElementById("datePicker");
+const saveBtn = document.getElementById("saveBtn");
+const statusEl = document.getElementById("status");
+const pastEl = document.getElementById("past");
 
-// ========================
-// Login
-// ========================
+let currentUser = null;
+let currentDate = null;
+
+/* 🔐 LOGIN */
 loginBtn.onclick = async () => {
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
 
+  currentUser = result.user;
+
   loginBtn.hidden = true;
   appEl.hidden = false;
 
-  await init(result.user);
+  setupDatePicker();
 };
 
-// ========================
-// INIT
-// ========================
-async function init(user) {
-  const datePicker = document.getElementById("datePicker");
-  const textarea = document.getElementById("diary");
-  const saveBtn = document.getElementById("saveBtn");
-  const status = document.getElementById("status");
-
+/* 📅 CONFIGURA CALENDÁRIO */
+function setupDatePicker() {
   const today = new Date().toISOString().split("T")[0];
-
   datePicker.max = today;
   datePicker.value = today;
 
-  await loadEntryForDate(user, today);
-  await renderCalendar(user, new Date().getFullYear(), new Date().getMonth() + 1);
+  loadEntryForDate(today);
 
-  // Troca de data
-  datePicker.addEventListener("change", async () => {
-    await loadEntryForDate(user, datePicker.value);
-  });
-
-  // ========================
-  // SALVAR DIÁRIO (UX COMPLETA)
-  // ========================
-  saveBtn.onclick = async () => {
-    saveBtn.disabled = true;
-    saveBtn.textContent = "Salvando...";
-    status.textContent = "Salvando diário...";
-    textarea.style.border = "";
-
-    try {
-      await saveEntryForDate(user, datePicker.value, textarea.value);
-
-      // 🔁 Recarrega do Firestore (fonte da verdade)
-      await loadEntryForDate(user, datePicker.value);
-
-      // ✅ Feedback visual forte
-      saveBtn.textContent = "Salvo ✔";
-      status.textContent = "Diário salvo com sucesso ✔";
-      textarea.style.border = "2px solid #4caf50";
-
-      setTimeout(() => {
-        saveBtn.textContent = "Salvar diário";
-        status.textContent = "";
-        textarea.style.border = "";
-      }, 2500);
-
-      const [year, month] = datePicker.value.split("-").map(Number);
-      await renderCalendar(user, year, month);
-
-    } catch (err) {
-      console.error(err);
-      status.textContent = "Erro ao salvar. Tente novamente.";
-      saveBtn.textContent = "Salvar diário";
-    } finally {
-      saveBtn.disabled = false;
-    }
+  datePicker.onchange = () => {
+    loadEntryForDate(datePicker.value);
   };
 }
 
-// ========================
-// LOAD ENTRY FOR DATE
-// ========================
-async function loadEntryForDate(user, dateStr) {
-  const textarea = document.getElementById("diary");
-  const past = document.getElementById("past");
-
-  // 🔴 RESET TOTAL DE ESTADO
-  textarea.value = "";
-  past.innerHTML = "<h2>Neste dia em outros anos</h2>";
+/* 📖 CARREGA ENTRADA */
+async function loadEntryForDate(dateStr) {
+  currentDate = dateStr;
+  diary.value = "";
+  pastEl.innerHTML = "";
+  statusEl.textContent = "";
 
   const [year, month, day] = dateStr.split("-").map(Number);
+  const id = `${currentUser.uid}_${dateStr}`;
 
-  document.getElementById("date").innerText =
-    `${day}/${month}/${year}`;
-
-  const ref = doc(db, "entries", `${user.uid}_${dateStr}`);
+  const ref = doc(db, "entries", id);
   const snap = await getDoc(ref);
 
   if (snap.exists()) {
-    textarea.value = snap.data().text || "";
+    diary.value = snap.data().text || "";
   }
 
-  await loadPastMemories(user.uid, day, month, year);
+  loadPastMemories(day, month, year);
 }
 
-// ========================
-// SAVE ENTRY
-// ========================
-async function saveEntryForDate(user, dateStr, text) {
-  if (!text.trim()) return;
+/* 💾 SALVAR */
+saveBtn.onclick = async () => {
+  if (!currentDate) return;
 
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const ref = doc(db, "entries", `${user.uid}_${dateStr}`);
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Salvando...";
+
+  const [year, month, day] = currentDate.split("-").map(Number);
+  const ref = doc(db, "entries", `${currentUser.uid}_${currentDate}`);
 
   await setDoc(ref, {
-    userId: user.uid,
+    userId: currentUser.uid,
     day,
     month,
     year,
-    text,
+    date: currentDate,
+    text: diary.value,
     updatedAt: serverTimestamp()
   });
-}
 
-// ========================
-// PAST MEMORIES
-// ========================
-async function loadPastMemories(uid, day, month, year) {
+  saveBtn.disabled = false;
+  saveBtn.textContent = "Salvar diário";
+  statusEl.textContent = "✅ Diário salvo com sucesso!";
+};
+
+/* ⏪ MEMÓRIAS DO MESMO DIA EM OUTROS ANOS */
+async function loadPastMemories(day, month, year) {
   const q = query(
     collection(db, "entries"),
-    where("userId", "==", uid),
+    where("userId", "==", currentUser.uid),
     where("day", "==", day),
     where("month", "==", month),
     where("year", "<", year),
     orderBy("year", "desc")
   );
 
-  const snapshot = await getDocs(q);
-  const past = document.getElementById("past");
+  const snap = await getDocs(q);
 
-  snapshot.forEach(docSnap => {
-    const e = docSnap.data();
+  snap.forEach(d => {
+    const e = d.data();
     const div = document.createElement("div");
     div.className = "card";
     div.innerHTML = `
       <strong>${e.day}/${e.month}/${e.year}</strong>
       <p>${e.text}</p>
     `;
-    past.appendChild(div);
+    pastEl.appendChild(div);
   });
-}
-
-// ========================
-// CALENDAR
-// ========================
-async function renderCalendar(user, year, month) {
-  const cal = document.getElementById("calendar");
-  cal.innerHTML = "";
-
-  const today = new Date().toISOString().split("T")[0];
-
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", user.uid),
-    where("year", "==", year),
-    where("month", "==", month)
-  );
-
-  const snap = await getDocs(q);
-  const filled = {};
-
-  snap.forEach(d => filled[d.data().day] = true);
-
-  const lastDay = new Date(year, month, 0).getDate();
-
-  for (let day = 1; day <= lastDay; day++) {
-    const dateStr =
-      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-    const btn = document.createElement("button");
-    btn.textContent = day;
-
-    if (filled[day]) btn.classList.add("filled");
-    if (dateStr > today) btn.disabled = true;
-
-    btn.onclick = async () => {
-      document.getElementById("datePicker").value = dateStr;
-      await loadEntryForDate(user, dateStr);
-    };
-
-    cal.appendChild(btn);
-  }
 }

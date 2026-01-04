@@ -2,34 +2,31 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Diário</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Meu Diário</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <button id="login">Entrar</button>
+  <h1>📓 Meu Diário</h1>
 
-  <main id="app" hidden>
-    <h1 id="date"></h1>
+  <button id="login">Entrar com Google</button>
 
-    <input type="date" id="datePicker" />
+  <div id="app" hidden>
+    <label>
+      📅 Escolha o dia:
+      <input type="date" id="datePicker">
+    </label>
 
     <textarea id="diary" placeholder="Escreva suas memórias..."></textarea>
 
-    
     <button id="saveBtn">Salvar diário</button>
-    <p id="status"></p>
+    <div id="status"></div>
 
-    <input type="file" id="photoInput" multiple accept="image/*" />
-    
-    <section id="calendar"></section>
+    <h2>📆 Outras memórias neste mesmo dia</h2>
+    <div id="past"></div>
+  </div>
 
-    <section id="past">
-      <h2>Neste dia em outros anos</h2>
-    </section>
-  </main>
-
+  <!-- ⚠️ OBRIGATÓRIO -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
