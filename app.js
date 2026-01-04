@@ -23,11 +23,6 @@ const firebaseConfig = {
     appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
     measurementId: "G-SLGTSXX5QN"
   };;
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
-
 /* 📌 ELEMENTOS */
 const loginBtn = document.getElementById("login");
 const appEl = document.getElementById("app");
@@ -36,7 +31,9 @@ const datePicker = document.getElementById("datePicker");
 const saveBtn = document.getElementById("saveBtn");
 const statusEl = document.getElementById("status");
 const pastEl = document.getElementById("past");
+const entriesList = document.getElementById("entriesList");
 
+/* 🔁 ESTADO */
 let currentUser = null;
 let currentDate = null;
 
@@ -51,6 +48,7 @@ loginBtn.onclick = async () => {
   appEl.hidden = false;
 
   setupDatePicker();
+  loadAllEntries();
 };
 
 /* 📅 CONFIGURA CALENDÁRIO */
@@ -66,12 +64,12 @@ function setupDatePicker() {
   };
 }
 
-/* 📖 CARREGA ENTRADA */
+/* 📖 CARREGA ENTRADA DA DATA */
 async function loadEntryForDate(dateStr) {
   currentDate = dateStr;
   diary.value = "";
-  pastEl.innerHTML = "";
   statusEl.textContent = "";
+  pastEl.innerHTML = "";
 
   const [year, month, day] = dateStr.split("-").map(Number);
   const id = `${currentUser.uid}_${dateStr}`;
@@ -86,7 +84,7 @@ async function loadEntryForDate(dateStr) {
   loadPastMemories(day, month, year);
 }
 
-/* 💾 SALVAR */
+/* 💾 SALVAR DIÁRIO */
 saveBtn.onclick = async () => {
   if (!currentDate) return;
 
@@ -98,10 +96,10 @@ saveBtn.onclick = async () => {
 
   await setDoc(ref, {
     userId: currentUser.uid,
+    date: currentDate,
     day,
     month,
     year,
-    date: currentDate,
     text: diary.value,
     updatedAt: serverTimestamp()
   });
@@ -109,6 +107,8 @@ saveBtn.onclick = async () => {
   saveBtn.disabled = false;
   saveBtn.textContent = "Salvar diário";
   statusEl.textContent = "✅ Diário salvo com sucesso!";
+
+  loadAllEntries();
 };
 
 /* ⏪ MEMÓRIAS DO MESMO DIA EM OUTROS ANOS */
@@ -133,5 +133,45 @@ async function loadPastMemories(day, month, year) {
       <p>${e.text}</p>
     `;
     pastEl.appendChild(div);
+  });
+}
+
+/* 📚 LISTA DE TODAS AS MEMÓRIAS */
+async function loadAllEntries() {
+  entriesList.innerHTML = "Carregando...";
+
+  const q = query(
+    collection(db, "entries"),
+    where("userId", "==", currentUser.uid),
+    orderBy("date", "desc")
+  );
+
+  const snap = await getDocs(q);
+
+  entriesList.innerHTML = "";
+
+  if (!snap.size) {
+    entriesList.innerHTML = "<p>Nenhuma memória salva ainda.</p>";
+    return;
+  }
+
+  snap.forEach(d => {
+    const e = d.data();
+    const div = document.createElement("div");
+    div.className = "card";
+    div.style.cursor = "pointer";
+
+    div.innerHTML = `
+      <strong>${e.date.split("-").reverse().join("/")}</strong>
+      <p>${e.text.substring(0, 100)}...</p>
+    `;
+
+    div.onclick = () => {
+      datePicker.value = e.date;
+      loadEntryForDate(e.date);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    entriesList.appendChild(div);
   });
 }

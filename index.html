@@ -12,21 +12,29 @@
   <button id="login">Entrar com Google</button>
 
   <div id="app" hidden>
+
     <label>
       📅 Escolha o dia:
       <input type="date" id="datePicker">
     </label>
 
-    <textarea id="diary" placeholder="Escreva suas memórias..."></textarea>
+    <textarea
+      id="diary"
+      placeholder="Escreva suas memórias..."
+    ></textarea>
 
     <button id="saveBtn">Salvar diário</button>
     <div id="status"></div>
 
     <h2>📆 Outras memórias neste mesmo dia</h2>
     <div id="past"></div>
+
+    <h2>📚 Minhas memórias salvas</h2>
+    <div id="entriesList"></div>
+
   </div>
 
-  <!-- ⚠️ OBRIGATÓRIO -->
+  <!-- ⚠️ OBRIGATÓRIO PARA FIREBASE -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
