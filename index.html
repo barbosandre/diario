@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Meu Diário</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
@@ -15,29 +15,32 @@
 
     <label>
       📅 Escolha o dia:
-      <input type="date" id="datePicker">
+      <input type="date" id="datePicker" />
     </label>
 
     <textarea
-      id="diary"
+      id="diaryText"
       placeholder="Escreva suas memórias..."
     ></textarea>
 
-    <button id="saveBtn">Salvar diário</button>
-    <div id="status"></div>
+    <button id="saveDiary">Salvar diário</button>
+    <span id="status"></span>
 
-    <h2>📆 Calendário</h2>
-    <div id="calendar"></div>
+    <h2 id="calendarTitle" style="cursor:pointer">📆 Calendário</h2>
 
-    <h2>📆 Outras memórias neste mesmo dia</h2>
-    <div id="past"></div>
+    <div id="calendarControls">
+      <button id="prevMonth">◀</button>
+      <span id="calendarLabel"></span>
+      <button id="nextMonth">▶</button>
+    </div>
+
+    <div id="calendar" class="calendar"></div>
 
     <h2>📚 Minhas memórias salvas</h2>
-    <div id="entriesList"></div>
+    <div id="allEntries"></div>
 
   </div>
 
-  <!-- ⚠️ OBRIGATÓRIO -->
   <script type="module" src="app.js"></script>
 </body>
 </html>
