@@ -34,3 +34,36 @@ button {
   margin-top: 10px;
   background: #fafafa;
 }
+
+/* 📆 CALENDÁRIO */
+
+#calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin: 10px 0 20px;
+}
+
+.day {
+  padding: 10px;
+  text-align: center;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  background: #f9f9f9;
+  user-select: none;
+}
+
+.day:hover {
+  background: #eee;
+}
+
+.day.filled {
+  background: #c8f7c5;
+  font-weight: bold;
+}
+
+.day.disabled {
+  background: #f0f0f0;
+  color: #aaa;
+  cursor: not-allowed;
+}

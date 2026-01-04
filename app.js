@@ -13,7 +13,7 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
-/* 🔥 CONFIG FIREBASE */
+/* 🔥 CONFIG FIREBASE (USE A SUA REAL) */
 const firebaseConfig = {
     apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
     authDomain: "diario-40d9e.firebaseapp.com",
@@ -37,6 +37,7 @@ const saveBtn = document.getElementById("saveBtn");
 const statusEl = document.getElementById("status");
 const pastEl = document.getElementById("past");
 const entriesList = document.getElementById("entriesList");
+const calendarEl = document.getElementById("calendar");
 
 /* 🔁 ESTADO */
 let currentUser = null;
@@ -54,9 +55,10 @@ loginBtn.onclick = async () => {
 
   setupDatePicker();
   loadAllEntries();
+  renderCalendar();
 };
 
-/* 📅 CONFIGURA CALENDÁRIO */
+/* 📅 CONFIGURA DATE PICKER */
 function setupDatePicker() {
   const today = new Date().toISOString().split("T")[0];
   datePicker.max = today;
@@ -69,7 +71,7 @@ function setupDatePicker() {
   };
 }
 
-/* 📖 CARREGA ENTRADA DA DATA */
+/* 📖 CARREGA ENTRADA */
 async function loadEntryForDate(dateStr) {
   currentDate = dateStr;
   diary.value = "";
@@ -90,11 +92,11 @@ async function loadEntryForDate(dateStr) {
     loadPastMemories(day, month, year);
   } catch (err) {
     console.error(err);
-    statusEl.textContent = "⚠️ Erro ao carregar esta data.";
+    statusEl.textContent = "⚠️ Erro ao carregar a data.";
   }
 }
 
-/* 💾 SALVAR DIÁRIO */
+/* 💾 SALVAR */
 saveBtn.onclick = async () => {
   if (!currentDate) return;
 
@@ -108,7 +110,7 @@ saveBtn.onclick = async () => {
   try {
     await setDoc(ref, {
       userId: currentUser.uid,
-      date: currentDate,          // 🔥 ESSENCIAL
+      date: currentDate,
       day,
       month,
       year,
@@ -118,6 +120,7 @@ saveBtn.onclick = async () => {
 
     statusEl.textContent = "✅ Diário salvo com sucesso!";
     loadAllEntries();
+    renderCalendar();
   } catch (err) {
     console.error(err);
     statusEl.textContent = "❌ Erro ao salvar o diário.";
@@ -156,7 +159,7 @@ async function loadPastMemories(day, month, year) {
   }
 }
 
-/* 📚 LISTA DE TODAS AS MEMÓRIAS (CORRIGIDA) */
+/* 📚 LISTA DE MEMÓRIAS */
 async function loadAllEntries() {
   entriesList.innerHTML = "Carregando...";
 
@@ -168,7 +171,6 @@ async function loadAllEntries() {
     );
 
     const snap = await getDocs(q);
-
     entriesList.innerHTML = "";
 
     if (!snap.size) {
@@ -178,8 +180,6 @@ async function loadAllEntries() {
 
     snap.forEach(d => {
       const e = d.data();
-
-      // 🔒 Proteção contra documentos antigos
       if (!e.date) return;
 
       const div = document.createElement("div");
@@ -203,6 +203,61 @@ async function loadAllEntries() {
   } catch (err) {
     console.error(err);
     entriesList.innerHTML =
-      "<p>⚠️ Erro ao carregar memórias. Recarregue a página.</p>";
+      "<p>⚠️ Erro ao carregar memórias.</p>";
+  }
+}
+
+/* 📆 CALENDÁRIO VISUAL */
+async function renderCalendar() {
+  calendarEl.innerHTML = "";
+
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  const totalDays = lastDay.getDate();
+  const startWeekDay = firstDay.getDay();
+
+  const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${totalDays}`;
+
+  const q = query(
+    collection(db, "entries"),
+    where("userId", "==", currentUser.uid),
+    where("date", ">=", startDate),
+    where("date", "<=", endDate)
+  );
+
+  const snap = await getDocs(q);
+  const filledDates = new Set(snap.docs.map(d => d.data().date));
+
+  for (let i = 0; i < startWeekDay; i++) {
+    calendarEl.appendChild(document.createElement("div"));
+  }
+
+  for (let day = 1; day <= totalDays; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const div = document.createElement("div");
+    div.className = "day";
+    div.textContent = day;
+
+    if (new Date(dateStr) > today) {
+      div.classList.add("disabled");
+    } else {
+      if (filledDates.has(dateStr)) {
+        div.classList.add("filled");
+      }
+
+      div.onclick = () => {
+        datePicker.value = dateStr;
+        loadEntryForDate(dateStr);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+    }
+
+    calendarEl.appendChild(div);
   }
 }
