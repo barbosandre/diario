@@ -28,31 +28,26 @@ loginBtn.onclick = async () => {
 };
 
 async function init(user) {
-  const today = new Date();
-  const day = today.getDate();
-  const month = today.getMonth() + 1;
-  const year = today.getFullYear();
-
-  const dateId = `${year}-${month}-${day}`;
-  document.getElementById("date").innerText =
-    `${day}/${month}/${year}`;
-
+  const datePicker = document.getElementById("datePicker");
   const textarea = document.getElementById("diary");
 
-  // Carregar entrada do dia
-  const ref = doc(db, "entries", `${user.uid}_${dateId}`);
-  const snap = await getDoc(ref);
-  if (snap.exists()) {
-    textarea.value = snap.data().text || "";
-  }
+  const today = new Date().toISOString().split("T")[0];
+  datePicker.max = today;
+  datePicker.value = today;
 
-  // Autosave
-  textarea.addEventListener("input", () =>
-    saveEntry(user.uid, ref, day, month, year, textarea.value)
-  );
+  await loadEntryForDate(user, today);
 
-  loadPastMemories(user.uid, day, month, year);
+  renderCalendar(user, new Date().getFullYear(), new Date().getMonth() + 1);
+
+  datePicker.addEventListener("change", async () => {
+    await loadEntryForDate(user, datePicker.value);
+  });
+
+  textarea.addEventListener("input", async () => {
+    await saveEntryForDate(user, datePicker.value, textarea.value);
+  });
 }
+
 
 async function saveEntry(uid, ref, day, month, year, text) {
   await setDoc(ref, {
@@ -90,3 +85,77 @@ async function loadPastMemories(uid, day, month, year) {
   });
 }
 
+async function loadEntryForDate(user, dateStr) {
+  const textarea = document.getElementById("diary");
+  textarea.value = "";
+
+  const [year, month, day] = dateStr.split("-").map(Number);
+
+  document.getElementById("date").innerText =
+    `${day}/${month}/${year}`;
+
+  const ref = doc(db, "entries", `${user.uid}_${dateStr}`);
+  const snap = await getDoc(ref);
+
+  if (snap.exists()) {
+    textarea.value = snap.data().text || "";
+  }
+
+  document.getElementById("past").innerHTML =
+    "<h2>Neste dia em outros anos</h2>";
+
+  loadPastMemories(user.uid, day, month, year);
+}
+
+async function saveEntryForDate(user, dateStr, text) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+
+  const ref = doc(db, "entries", `${user.uid}_${dateStr}`);
+
+  await setDoc(ref, {
+    userId: user.uid,
+    day,
+    month,
+    year,
+    text,
+    updatedAt: serverTimestamp()
+  }, { merge: true });
+}
+
+async function renderCalendar(user, year, month) {
+  const cal = document.getElementById("calendar");
+  cal.innerHTML = "";
+
+  const today = new Date().toISOString().split("T")[0];
+
+  const q = query(
+    collection(db, "entries"),
+    where("userId", "==", user.uid),
+    where("year", "==", year),
+    where("month", "==", month)
+  );
+
+  const snap = await getDocs(q);
+  const filled = {};
+
+  snap.forEach(d => filled[d.data().day] = true);
+
+  const lastDay = new Date(year, month, 0).getDate();
+
+  for (let day = 1; day <= lastDay; day++) {
+    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    const btn = document.createElement("button");
+    btn.textContent = day;
+
+    if (filled[day]) btn.classList.add("filled");
+    if (dateStr > today) btn.disabled = true;
+
+    btn.onclick = () => {
+      document.getElementById("datePicker").value = dateStr;
+      loadEntryForDate(user, dateStr);
+    };
+
+    cal.appendChild(btn);
+  }
+}
