@@ -79,14 +79,19 @@ async function loadEntryForDate(dateStr) {
   const [year, month, day] = dateStr.split("-").map(Number);
   const id = `${currentUser.uid}_${dateStr}`;
 
-  const ref = doc(db, "entries", id);
-  const snap = await getDoc(ref);
+  try {
+    const ref = doc(db, "entries", id);
+    const snap = await getDoc(ref);
 
-  if (snap.exists()) {
-    diary.value = snap.data().text || "";
+    if (snap.exists()) {
+      diary.value = snap.data().text || "";
+    }
+
+    loadPastMemories(day, month, year);
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "⚠️ Erro ao carregar esta data.";
   }
-
-  loadPastMemories(day, month, year);
 }
 
 /* 💾 SALVAR DIÁRIO */
@@ -95,88 +100,109 @@ saveBtn.onclick = async () => {
 
   saveBtn.disabled = true;
   saveBtn.textContent = "Salvando...";
+  statusEl.textContent = "";
 
   const [year, month, day] = currentDate.split("-").map(Number);
   const ref = doc(db, "entries", `${currentUser.uid}_${currentDate}`);
 
-  await setDoc(ref, {
-    userId: currentUser.uid,
-    date: currentDate,
-    day,
-    month,
-    year,
-    text: diary.value,
-    updatedAt: serverTimestamp()
-  });
+  try {
+    await setDoc(ref, {
+      userId: currentUser.uid,
+      date: currentDate,          // 🔥 ESSENCIAL
+      day,
+      month,
+      year,
+      text: diary.value,
+      updatedAt: serverTimestamp()
+    });
 
-  saveBtn.disabled = false;
-  saveBtn.textContent = "Salvar diário";
-  statusEl.textContent = "✅ Diário salvo com sucesso!";
-
-  loadAllEntries();
+    statusEl.textContent = "✅ Diário salvo com sucesso!";
+    loadAllEntries();
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = "❌ Erro ao salvar o diário.";
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Salvar diário";
+  }
 };
 
 /* ⏪ MEMÓRIAS DO MESMO DIA EM OUTROS ANOS */
 async function loadPastMemories(day, month, year) {
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", currentUser.uid),
-    where("day", "==", day),
-    where("month", "==", month),
-    where("year", "<", year),
-    orderBy("year", "desc")
-  );
+  try {
+    const q = query(
+      collection(db, "entries"),
+      where("userId", "==", currentUser.uid),
+      where("day", "==", day),
+      where("month", "==", month),
+      where("year", "<", year),
+      orderBy("year", "desc")
+    );
 
-  const snap = await getDocs(q);
+    const snap = await getDocs(q);
 
-  snap.forEach(d => {
-    const e = d.data();
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `
-      <strong>${e.day}/${e.month}/${e.year}</strong>
-      <p>${e.text}</p>
-    `;
-    pastEl.appendChild(div);
-  });
+    snap.forEach(d => {
+      const e = d.data();
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <strong>${e.day}/${e.month}/${e.year}</strong>
+        <p>${e.text || ""}</p>
+      `;
+      pastEl.appendChild(div);
+    });
+  } catch (err) {
+    console.error(err);
+  }
 }
 
-/* 📚 LISTA DE TODAS AS MEMÓRIAS */
+/* 📚 LISTA DE TODAS AS MEMÓRIAS (CORRIGIDA) */
 async function loadAllEntries() {
   entriesList.innerHTML = "Carregando...";
 
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", currentUser.uid),
-    orderBy("date", "desc")
-  );
+  try {
+    const q = query(
+      collection(db, "entries"),
+      where("userId", "==", currentUser.uid),
+      orderBy("date", "desc")
+    );
 
-  const snap = await getDocs(q);
+    const snap = await getDocs(q);
 
-  entriesList.innerHTML = "";
+    entriesList.innerHTML = "";
 
-  if (!snap.size) {
-    entriesList.innerHTML = "<p>Nenhuma memória salva ainda.</p>";
-    return;
+    if (!snap.size) {
+      entriesList.innerHTML = "<p>Nenhuma memória salva ainda.</p>";
+      return;
+    }
+
+    snap.forEach(d => {
+      const e = d.data();
+
+      // 🔒 Proteção contra documentos antigos
+      if (!e.date) return;
+
+      const div = document.createElement("div");
+      div.className = "card";
+      div.style.cursor = "pointer";
+
+      div.innerHTML = `
+        <strong>${e.date.split("-").reverse().join("/")}</strong>
+        <p>${(e.text || "").substring(0, 100)}...</p>
+      `;
+
+      div.onclick = () => {
+        datePicker.value = e.date;
+        loadEntryForDate(e.date);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+
+      entriesList.appendChild(div);
+    });
+
+  } catch (err) {
+    console.error(err);
+    entriesList.innerHTML =
+      "<p>⚠️ Erro ao carregar memórias. Recarregue a página.</p>";
   }
-
-  snap.forEach(d => {
-    const e = d.data();
-    const div = document.createElement("div");
-    div.className = "card";
-    div.style.cursor = "pointer";
-
-    div.innerHTML = `
-      <strong>${e.date.split("-").reverse().join("/")}</strong>
-      <p>${e.text.substring(0, 100)}...</p>
-    `;
-
-    div.onclick = () => {
-      datePicker.value = e.date;
-      loadEntryForDate(e.date);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-
-    entriesList.appendChild(div);
-  });
 }
