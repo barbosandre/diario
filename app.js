@@ -90,12 +90,3 @@ async function loadPastMemories(uid, day, month, year) {
   });
 }
 
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /entries/{doc} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == request.resource.data.userId;
-    }
-  }
-}
