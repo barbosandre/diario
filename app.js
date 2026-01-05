@@ -54,22 +54,18 @@ let calendarVisible = true;
 
 /* 🔐 LOGIN */
 loginBtn.onclick = async () => {
-  const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
+  console.log("Clique detectado");
 
-  currentUser = result.user;
-
-  const today = new Date();
-  calendarMonth = today.getMonth();
-  calendarYear = today.getFullYear();
-
-  loginBtn.hidden = true;
-  appEl.hidden = false;
-
-  setupDatePicker();
-  loadAllEntries();
-  renderCalendar();
+  try {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    console.log("Login OK", result.user);
+  } catch (err) {
+    console.error("Erro no login:", err);
+    alert(err.message);
+  }
 };
+
 
 /* 📅 DATE PICKER */
 function setupDatePicker() {
