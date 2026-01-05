@@ -220,7 +220,6 @@ async function renderCalendar() {
 
     const snap = await getDocs(q);
     filledDates = new Set(snap.docs.map(d => d.data().date));
-    console.log(filledDates)
   } catch {}
 
   for (let i = 0; i < firstDay; i++) {
