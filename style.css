@@ -37,6 +37,19 @@ button {
 
 /* 📆 CALENDÁRIO */
 
+#calendarControls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+#calendarLabel {
+  font-weight: bold;
+  text-transform: capitalize;
+}
+
 #calendar {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
