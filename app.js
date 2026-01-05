@@ -14,7 +14,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
 /* 🔥 CONFIG FIREBASE */
-  const firebaseConfig = {
+const firebaseConfig = {
     apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
     authDomain: "diario-40d9e.firebaseapp.com",
     projectId: "diario-40d9e",
@@ -23,8 +23,8 @@ import {
     appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
     measurementId: "G-SLGTSXX5QN"
   };
-
-const app = initializeApp(firebaseConfig);
+ 
+ const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore();
 
@@ -208,4 +208,80 @@ async function renderCalendar() {
   let filledDates = new Set();
 
   const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const end = `${year}-${Str
+  const end = `${year}-${String(month + 1).padStart(2, "0")}-${totalDays}`;
+
+  try {
+    const q = query(
+      collection(db, "entries"),
+      where("userId", "==", currentUser.uid),
+      where("date", ">=", start),
+      where("date", "<=", end)
+    );
+
+    const snap = await getDocs(q);
+    filledDates = new Set(snap.docs.map(d => d.data().date));
+  } catch {}
+
+  for (let i = 0; i < firstDay; i++) {
+    calendarEl.appendChild(document.createElement("div"));
+  }
+
+  for (let day = 1; day <= totalDays; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const div = document.createElement("div");
+    div.className = "day";
+    div.textContent = day;
+
+    if (new Date(dateStr) > today) {
+      div.classList.add("disabled");
+    } else {
+      if (filledDates.has(dateStr)) div.classList.add("filled");
+      div.onclick = () => {
+        datePicker.value = dateStr;
+        loadEntryForDate(dateStr);
+      };
+    }
+
+    calendarEl.appendChild(div);
+  }
+}
+
+/* 🏷 LABEL */
+function updateCalendarLabel() {
+  const d = new Date(calendarYear, calendarMonth);
+  calendarLabel.textContent = d.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+/* ◀ ▶ */
+prevMonthBtn.onclick = () => {
+  calendarMonth--;
+  if (calendarMonth < 0) {
+    calendarMonth = 11;
+    calendarYear--;
+  }
+  renderCalendar();
+};
+
+nextMonthBtn.onclick = () => {
+  const next = new Date(calendarYear, calendarMonth + 1);
+  const today = new Date();
+  if (next > new Date(today.getFullYear(), today.getMonth())) return;
+
+  calendarMonth++;
+  if (calendarMonth > 11) {
+    calendarMonth = 0;
+    calendarYear++;
+  }
+  renderCalendar();
+};
+
+/* 👁 TOGGLE */
+calendarTitle.onclick = () => {
+  calendarVisible = !calendarVisible;
+  calendarEl.style.display = calendarVisible ? "grid" : "none";
+  document.getElementById("calendarControls").style.display =
+    calendarVisible ? "flex" : "none";
+};
