@@ -2,47 +2,123 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Meu Diário</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Minha Central de Reviews</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <header class="hero">
+    <p class="badge">SITE PESSOAL</p>
+    <h1>Minha Central de Reviews</h1>
+    <p class="subtitle">
+      Registre o que você leu, assistiu, correu e ouviu — e conecte com Goodreads,
+      Letterboxd, Strava e Last.fm.
+    </p>
+  </header>
 
-  <h1>📓 Meu Diário</h1>
+  <main class="layout">
+    <section class="panel">
+      <h2>⚙️ Integrações</h2>
+      <p class="hint">As configurações ficam salvas só no seu navegador.</p>
 
-  <button id="login">Entrar com Google</button>
+      <div class="integration-grid">
+        <article class="integration-card">
+          <h3>📚 Goodreads</h3>
+          <input id="goodreadsUserId" type="text" placeholder="ID do usuário" />
+          <input id="goodreadsApiKey" type="password" placeholder="API key (opcional)" />
+          <button data-action="sync-goodreads">Importar do feed</button>
+        </article>
 
-  <div id="app" hidden>
+        <article class="integration-card">
+          <h3>🎬 Letterboxd</h3>
+          <input id="letterboxdUser" type="text" placeholder="username" />
+          <button data-action="sync-letterboxd">Importar via RSS</button>
+        </article>
 
-    <label>
-      📅 Escolha o dia:
-      <input type="date" id="datePicker">
-    </label>
+        <article class="integration-card">
+          <h3>🏃 Strava</h3>
+          <input id="stravaToken" type="password" placeholder="Bearer token" />
+          <button data-action="sync-strava">Importar atividades</button>
+        </article>
 
-    <textarea
-      id="diary"
-      placeholder="Escreva suas memórias..."
-    ></textarea>
+        <article class="integration-card">
+          <h3>🎧 Last.fm</h3>
+          <input id="lastfmUser" type="text" placeholder="username" />
+          <input id="lastfmApiKey" type="password" placeholder="API key" />
+          <button data-action="sync-lastfm">Importar scrobbles</button>
+        </article>
+      </div>
 
-    <button id="saveBtn">Salvar diário</button>
-    <div id="status"></div>
+      <div id="syncStatus" class="status"></div>
+    </section>
 
-    <h2 id="calendarTitle" style="cursor:pointer">📆 Calendário</h2>
+    <section class="panel">
+      <h2>✍️ Novo review</h2>
+      <form id="reviewForm" class="form-grid">
+        <label>
+          Categoria
+          <select id="category" required>
+            <option value="book">Livro</option>
+            <option value="movie">Filme/Série</option>
+            <option value="run">Corrida</option>
+            <option value="music">Música</option>
+            <option value="custom">Livre</option>
+          </select>
+        </label>
 
-    <div id="calendarControls">
-      <button id="prevMonth">◀</button>
-      <span id="calendarLabel"></span>
-      <button id="nextMonth">▶</button>
-    </div>
+        <label>
+          Título
+          <input id="title" type="text" placeholder="Ex.: Duna" required />
+        </label>
 
-    <div id="calendar"></div>
+        <label>
+          Data
+          <input id="date" type="date" required />
+        </label>
 
-    <h2>📆 Outras memórias neste mesmo dia</h2>
-    <div id="past"></div>
+        <label>
+          Nota (0-10)
+          <input id="rating" type="number" min="0" max="10" step="0.5" />
+        </label>
 
-    <h2>📚 Minhas memórias salvas</h2>
-    <div id="entriesList"></div>
+        <label class="full">
+          Review
+          <textarea id="review" rows="5" placeholder="O que você achou?"></textarea>
+        </label>
 
-  </div>
+        <label class="full">
+          Link de referência (opcional)
+          <input id="referenceUrl" type="url" placeholder="https://..." />
+        </label>
+
+        <button type="submit">Salvar review</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>📥 Itens importados</h2>
+      <div id="imports" class="stack"></div>
+    </section>
+
+    <section class="panel">
+      <h2>🗂️ Meu feed</h2>
+      <div id="posts" class="stack"></div>
+    </section>
+  </main>
+
+  <template id="postTemplate">
+    <article class="post">
+      <div class="post-meta">
+        <span class="tag"></span>
+        <time></time>
+      </div>
+      <h3></h3>
+      <p class="rating"></p>
+      <p class="body"></p>
+      <a class="ref" target="_blank" rel="noreferrer"></a>
+      <button class="delete-btn">Excluir</button>
+    </article>
+  </template>
 
   <script type="module" src="app.js"></script>
 </body>
