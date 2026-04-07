@@ -61,6 +61,7 @@
 
         <button type="submit">Publicar</button>
       </form>
+      <p id="postStatus" class="feedback"></p>
     </section>
 
 
@@ -70,6 +71,7 @@
         <input id="letterboxdUser" type="text" placeholder="username do Letterboxd" />
         <button id="syncLetterboxdBtn" type="button">Sincronizar</button>
       </div>
+      <p id="syncStatus" class="feedback"></p>
       <p id="syncStatus" class="sync-status"></p>
       <div id="imports" class="list"></div>
     </section>
@@ -105,6 +107,8 @@
       <button class="danger">Excluir</button>
     </article>
   </template>
+
+  <div id="toast" class="toast hidden"></div>
 
   <script type="module" src="app.js"></script>
 </body>

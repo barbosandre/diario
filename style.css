@@ -214,6 +214,42 @@ form button {
   display: none;
 }
 
+
+.feedback {
+  margin: 10px 0 0;
+  min-height: 20px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.feedback.success {
+  color: #9ff0b7;
+}
+
+.feedback.error {
+  color: #ffb4b4;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: #1c2b23;
+  border: 1px solid #3d5b4a;
+  color: #dffff0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+
+.toast.error {
+  background: #382023;
+  border-color: #6a3238;
+  color: #ffd0d0;
+}
+
 @media (max-width: 760px) {
   .form {
     grid-template-columns: 1fr;

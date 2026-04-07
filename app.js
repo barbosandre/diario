@@ -32,6 +32,8 @@ const libraryView = document.getElementById("libraryView");
 const importsEl = document.getElementById("imports");
 const syncBtn = document.getElementById("syncLetterboxdBtn");
 const syncStatus = document.getElementById("syncStatus");
+const postStatus = document.getElementById("postStatus");
+const toastEl = document.getElementById("toast");
 const letterboxdInput = document.getElementById("letterboxdUser");
 
 init();
@@ -58,11 +60,14 @@ async function syncLetterboxd() {
   const user = letterboxdInput.value.trim();
 
   if (!user) {
+    setFeedback(syncStatus, "Informe o username do Letterboxd.", "error");
+    flashToast("Informe o username do Letterboxd.", "error");
     syncStatus.textContent = "Informe o username do Letterboxd.";
     return;
   }
 
   localStorage.setItem(LETTERBOXD_USER_KEY, user);
+  setFeedback(syncStatus, "Sincronizando...", "info");
   syncStatus.textContent = "Sincronizando...";
   syncBtn.disabled = true;
 
@@ -70,6 +75,14 @@ async function syncLetterboxd() {
     const items = await fetchLetterboxdFeed(user);
     state.imports = items;
     renderImports();
+    const message = `Sincronizado com sucesso: ${items.length} itens importados.`;
+    setFeedback(syncStatus, message, "success");
+    flashToast(message, "success");
+  } catch (error) {
+    console.error(error);
+    const message = `Falha ao sincronizar: ${error.message}`;
+    setFeedback(syncStatus, message, "error");
+    flashToast(message, "error");
     syncStatus.textContent = `Sincronizado com sucesso: ${items.length} itens importados.`;
   } catch (error) {
     console.error(error);
@@ -160,6 +173,8 @@ function renderImports() {
       state.posts.unshift({ ...item, id: crypto.randomUUID() });
       savePosts();
       render();
+      setFeedback(postStatus, "Item importado adicionado à timeline.", "success");
+      flashToast("Item importado adicionado à timeline.", "success");
     });
 
     card.querySelector(".post-item").appendChild(action);
@@ -187,6 +202,11 @@ function handleSubmit(event) {
   document.getElementById("date").value = new Date().toISOString().slice(0, 10);
   toggleKmField();
   render();
+  setFeedback(postStatus, "Post publicado com sucesso.", "success");
+  flashToast("Post publicado com sucesso.", "success");
+}
+
+
 }
 
 function setView(viewName) {
@@ -276,6 +296,8 @@ function renderPost(post, showDelete) {
       state.posts = state.posts.filter((item) => item.id !== post.id);
       savePosts();
       render();
+      setFeedback(postStatus, "Post excluído.", "success");
+      flashToast("Post excluído.", "success");
     });
   }
 
@@ -314,6 +336,26 @@ function stripHtml(raw) {
   const div = document.createElement("div");
   div.innerHTML = raw;
   return div.textContent?.trim() || "";
+}
+
+
+function setFeedback(element, message, tone = "info") {
+  element.textContent = message;
+  element.classList.remove("success", "error");
+  if (tone === "success") element.classList.add("success");
+  if (tone === "error") element.classList.add("error");
+}
+
+let toastTimer;
+function flashToast(message, tone = "success") {
+  toastEl.textContent = message;
+  toastEl.classList.remove("hidden", "error");
+  if (tone === "error") toastEl.classList.add("error");
+
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toastEl.classList.add("hidden");
+  }, 2600);
 }
 
 function loadPosts() {
