@@ -2,47 +2,141 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Meu Diário</title>
-  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Barboseiras</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
-  <h1>📓 Meu Diário</h1>
-
-  <button id="login">Entrar com Google</button>
-
-  <div id="app" hidden>
-
-    <label>
-      📅 Escolha o dia:
-      <input type="date" id="datePicker">
-    </label>
-
-    <textarea
-      id="diary"
-      placeholder="Escreva suas memórias..."
-    ></textarea>
-
-    <button id="saveBtn">Salvar diário</button>
-    <div id="status"></div>
-
-    <h2 id="calendarTitle" style="cursor:pointer">📆 Calendário</h2>
-
-    <div id="calendarControls">
-      <button id="prevMonth">◀</button>
-      <span id="calendarLabel"></span>
-      <button id="nextMonth">▶</button>
+  <header class="topbar">
+    <div>
+      <p class="brand-kicker">PROJETO PESSOAL</p>
+      <h1>Barboseiras</h1>
+      <p class="subtitle">um local para que o Barbosa expurgue suas ideias.</p>
     </div>
+    <div class="top-actions">
+      <button id="exportBtn" type="button">Exportar backup</button>
+      <label class="import-label">
+        Importar backup
+        <input id="importFile" type="file" accept="application/json" hidden />
+      </label>
+    </div>
+  </header>
 
-    <div id="calendar"></div>
+  <main class="container">
+    <section class="composer card">
+      <h2 id="composerTitle">Novo post</h2>
+      <form id="postForm" class="form">
+        <label>
+          Tipo
+          <select id="type" required>
+            <option value="filme">Filme</option>
+            <option value="serie">Série de TV</option>
+            <option value="livro">Livro</option>
+            <option value="quadrinhos">Quadrinhos</option>
+            <option value="videogame">Video Games</option>
+            <option value="corrida">Corridas</option>
+            <option value="musica">Músicas</option>
+            <option value="album">Álbuns</option>
+            <option value="livre">Post livre</option>
+          </select>
+        </label>
 
-    <h2>📆 Outras memórias neste mesmo dia</h2>
-    <div id="past"></div>
+        <label>
+          Título
+          <input id="title" type="text" minlength="2" maxlength="120" placeholder="Ex.: Blade Runner" required />
+        </label>
 
-    <h2>📚 Minhas memórias salvas</h2>
-    <div id="entriesList"></div>
+        <label>
+          Data
+          <input id="date" type="date" required />
+        </label>
 
-  </div>
+        <label>
+          Nota (0-10)
+          <input id="rating" type="number" min="0" max="10" step="0.5" placeholder="Opcional" />
+        </label>
+
+        <label id="kmField" class="hidden">
+          Quilometragem (km)
+          <input id="km" type="number" min="0" max="200" step="0.01" placeholder="Ex.: 7.30" />
+        </label>
+
+        <label class="full">
+          Texto
+          <textarea id="content" rows="6" maxlength="2400" placeholder="Escreva seu post/review..."></textarea>
+        </label>
+
+        <div class="form-actions full">
+          <button id="submitBtn" type="submit">Publicar</button>
+          <button id="cancelEditBtn" type="button" class="hidden secondary">Cancelar edição</button>
+        </div>
+      </form>
+      <p id="postStatus" class="feedback" aria-live="polite"></p>
+    </section>
+
+    <section class="card">
+      <h2>Sincronizar Letterboxd</h2>
+      <div class="sync-row">
+        <input id="letterboxdUser" type="text" placeholder="username do Letterboxd" />
+        <button id="syncLetterboxdBtn" type="button">Sincronizar</button>
+      </div>
+      <p id="syncStatus" class="feedback" aria-live="polite"></p>
+      <div id="imports" class="list"></div>
+    </section>
+
+    <section class="card">
+      <div class="controls">
+        <input id="searchInput" type="search" placeholder="Buscar por título ou texto..." />
+        <select id="sortSelect">
+          <option value="newest">Mais recentes</option>
+          <option value="oldest">Mais antigos</option>
+          <option value="rating">Melhor nota</option>
+          <option value="title">Título (A-Z)</option>
+        </select>
+      </div>
+
+      <div class="view-switch">
+        <button class="switch active" data-view="timeline">Timeline</button>
+        <button class="switch" data-view="library">Biblioteca</button>
+      </div>
+
+      <div id="timelineView">
+        <h2>Timeline</h2>
+        <div id="timeline" class="list"></div>
+      </div>
+
+      <div id="libraryView" class="hidden">
+        <h2>Biblioteca por tipo</h2>
+        <div id="filters" class="filters"></div>
+        <div id="library" class="list"></div>
+      </div>
+
+      <div class="pagination">
+        <button id="prevPageBtn" type="button" class="secondary">Anterior</button>
+        <span id="pageLabel">Página 1</span>
+        <button id="nextPageBtn" type="button" class="secondary">Próxima</button>
+      </div>
+    </section>
+  </main>
+
+  <template id="postTemplate">
+    <article class="post-item">
+      <div class="meta">
+        <span class="pill"></span>
+        <time></time>
+      </div>
+      <h3 class="title"></h3>
+      <p class="extra"></p>
+      <p class="body"></p>
+      <div class="row-actions">
+        <button class="secondary edit-btn">Editar</button>
+        <button class="secondary duplicate-btn">Duplicar</button>
+        <button class="danger delete-btn">Excluir</button>
+      </div>
+    </article>
+  </template>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script type="module" src="app.js"></script>
 </body>
