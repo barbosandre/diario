@@ -1,287 +1,350 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc,
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
-
-/* 🔥 CONFIG FIREBASE */
-const firebaseConfig = {
-    apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
-    authDomain: "diario-40d9e.firebaseapp.com",
-    projectId: "diario-40d9e",
-    storageBucket: "diario-40d9e.firebasestorage.app",
-    messagingSenderId: "39169574766",
-    appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
-    measurementId: "G-SLGTSXX5QN"
-  };
- 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
-
-/* 📌 ELEMENTOS */
-const loginBtn = document.getElementById("login");
-const appEl = document.getElementById("app");
-const diary = document.getElementById("diary");
-const datePicker = document.getElementById("datePicker");
-const saveBtn = document.getElementById("saveBtn");
-const statusEl = document.getElementById("status");
-const pastEl = document.getElementById("past");
-const entriesList = document.getElementById("entriesList");
-const calendarEl = document.getElementById("calendar");
-
-/* 📆 CONTROLES */
-const prevMonthBtn = document.getElementById("prevMonth");
-const nextMonthBtn = document.getElementById("nextMonth");
-const calendarLabel = document.getElementById("calendarLabel");
-const calendarTitle = document.getElementById("calendarTitle");
-
-/* 🔁 ESTADO */
-let currentUser = null;
-let currentDate = null;
-let calendarMonth = null;
-let calendarYear = null;
-let calendarVisible = true;
-
-/* 🔐 LOGIN */
-loginBtn.onclick = async () => {
-  const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
-
-  currentUser = result.user;
-
-  const today = new Date();
-  calendarMonth = today.getMonth();
-  calendarYear = today.getFullYear();
-
-  loginBtn.hidden = true;
-  appEl.hidden = false;
-
-  setupDatePicker();
-  loadAllEntries();
-  renderCalendar();
+const STORAGE_KEYS = {
+  posts: "review_posts_v2",
+  settings: "integration_settings_v2"
 };
 
-/* 📅 DATE PICKER */
-function setupDatePicker() {
-  const today = new Date().toISOString().split("T")[0];
-  datePicker.max = today;
-  datePicker.value = today;
+const state = {
+  posts: loadJson(STORAGE_KEYS.posts, []),
+  imports: [],
+  settings: loadJson(STORAGE_KEYS.settings, {
+    goodreadsUserId: "",
+    goodreadsApiKey: "",
+    letterboxdUser: "",
+    stravaToken: "",
+    lastfmUser: "",
+    lastfmApiKey: ""
+  })
+};
 
-  loadEntryForDate(today);
+const reviewForm = document.getElementById("reviewForm");
+const postsEl = document.getElementById("posts");
+const importsEl = document.getElementById("imports");
+const syncStatus = document.getElementById("syncStatus");
+const postTemplate = document.getElementById("postTemplate");
 
-  datePicker.onchange = () => {
-    loadEntryForDate(datePicker.value);
-  };
-}
+const fields = {
+  category: document.getElementById("category"),
+  title: document.getElementById("title"),
+  date: document.getElementById("date"),
+  rating: document.getElementById("rating"),
+  review: document.getElementById("review"),
+  referenceUrl: document.getElementById("referenceUrl"),
+  goodreadsUserId: document.getElementById("goodreadsUserId"),
+  goodreadsApiKey: document.getElementById("goodreadsApiKey"),
+  letterboxdUser: document.getElementById("letterboxdUser"),
+  stravaToken: document.getElementById("stravaToken"),
+  lastfmUser: document.getElementById("lastfmUser"),
+  lastfmApiKey: document.getElementById("lastfmApiKey")
+};
 
-/* 📖 CARREGAR ENTRADA */
-async function loadEntryForDate(dateStr) {
-  currentDate = dateStr;
-  diary.value = "";
-  statusEl.textContent = "";
-  pastEl.innerHTML = "";
+hydrateSettingsForm();
+setDefaultDate();
+renderPosts();
+renderImports();
 
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const id = `${currentUser.uid}_${dateStr}`;
+reviewForm.addEventListener("submit", handleNewPost);
+document.querySelectorAll("[data-action]").forEach((button) => {
+  button.addEventListener("click", () => runSync(button.dataset.action));
+});
 
-  const ref = doc(db, "entries", id);
-  const snap = await getDoc(ref);
+Object.entries(fields)
+  .filter(([key]) => key.includes("goodreads") || key.includes("letterboxd") || key.includes("strava") || key.includes("lastfm"))
+  .forEach(([key, input]) => {
+    input.addEventListener("change", () => {
+      state.settings[key] = input.value.trim();
+      saveJson(STORAGE_KEYS.settings, state.settings);
+    });
+  });
 
-  if (snap.exists()) {
-    diary.value = snap.data().text || "";
-  }
-
-  loadPastMemories(day, month, year);
-}
-
-/* 💾 SALVAR */
-saveBtn.onclick = async () => {
-  if (!currentDate) return;
-
-  saveBtn.disabled = true;
-  saveBtn.textContent = "Salvando...";
-  statusEl.textContent = "";
-
-  const [year, month, day] = currentDate.split("-").map(Number);
-  const ref = doc(db, "entries", `${currentUser.uid}_${currentDate}`);
+async function runSync(action) {
+  syncStatus.textContent = "Sincronizando...";
 
   try {
-    await setDoc(ref, {
-      userId: currentUser.uid,
-      date: currentDate,
-      day,
-      month,
-      year,
-      text: diary.value,
-      updatedAt: serverTimestamp()
-    });
+    if (action === "sync-goodreads") {
+      state.imports = await syncGoodreads();
+    }
 
-    statusEl.textContent = "✅ Diário salvo com sucesso!";
-    loadAllEntries();
-    renderCalendar();
-  } catch {
-    statusEl.textContent = "❌ Erro ao salvar.";
-  } finally {
-    saveBtn.disabled = false;
-    saveBtn.textContent = "Salvar diário";
+    if (action === "sync-letterboxd") {
+      state.imports = await syncLetterboxd();
+    }
+
+    if (action === "sync-strava") {
+      state.imports = await syncStrava();
+    }
+
+    if (action === "sync-lastfm") {
+      state.imports = await syncLastfm();
+    }
+
+    renderImports();
+    syncStatus.textContent = `Importação concluída: ${state.imports.length} itens.`;
+  } catch (error) {
+    console.error(error);
+    syncStatus.textContent = `Falha ao sincronizar: ${error.message}`;
   }
-};
-
-/* ⏪ MEMÓRIAS DO MESMO DIA */
-async function loadPastMemories(day, month, year) {
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", currentUser.uid),
-    where("day", "==", day),
-    where("month", "==", month),
-    where("year", "<", year),
-    orderBy("year", "desc")
-  );
-
-  const snap = await getDocs(q);
-
-  snap.forEach(d => {
-    const e = d.data();
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `<strong>${e.day}/${e.month}/${e.year}</strong><p>${e.text || ""}</p>`;
-    pastEl.appendChild(div);
-  });
 }
 
-/* 📚 TODAS MEMÓRIAS */
-async function loadAllEntries() {
-  entriesList.innerHTML = "Carregando...";
+async function syncGoodreads() {
+  const userId = state.settings.goodreadsUserId;
+  if (!userId) throw new Error("Preencha o ID do Goodreads.");
 
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", currentUser.uid),
-    orderBy("date", "desc")
-  );
+  const apiKeyPart = state.settings.goodreadsApiKey ? `?key=${encodeURIComponent(state.settings.goodreadsApiKey)}` : "";
+  const url = `https://www.goodreads.com/review/list_rss/${encodeURIComponent(userId)}${apiKeyPart}`;
+  const xmlText = await fetchWithCorsFallback(url);
+  const feed = new DOMParser().parseFromString(xmlText, "application/xml");
+  const items = [...feed.querySelectorAll("item")].slice(0, 12);
 
-  const snap = await getDocs(q);
-  entriesList.innerHTML = "";
+  return items.map((item) => ({
+    source: "goodreads",
+    category: "book",
+    title: text(item, "title") || "Livro",
+    date: normalizeDate(text(item, "pubDate")),
+    review: text(item, "description") || "",
+    referenceUrl: text(item, "link") || ""
+  }));
+}
 
-  if (!snap.size) {
-    entriesList.innerHTML = "<p>Nenhuma memória salva.</p>";
+async function syncLetterboxd() {
+  const user = state.settings.letterboxdUser;
+  if (!user) throw new Error("Preencha o username do Letterboxd.");
+
+  const url = `https://letterboxd.com/${encodeURIComponent(user)}/rss/`;
+  const xmlText = await fetchWithCorsFallback(url);
+  const feed = new DOMParser().parseFromString(xmlText, "application/xml");
+  const items = [...feed.querySelectorAll("item")].slice(0, 12);
+
+  return items.map((item) => ({
+    source: "letterboxd",
+    category: "movie",
+    title: (text(item, "title") || "Filme").replace(`${user} watched `, ""),
+    date: normalizeDate(text(item, "pubDate")),
+    review: text(item, "description") || "",
+    referenceUrl: text(item, "link") || ""
+  }));
+}
+
+async function syncStrava() {
+  const token = state.settings.stravaToken;
+  if (!token) throw new Error("Preencha o token do Strava.");
+
+  const response = await fetch("https://www.strava.com/api/v3/athlete/activities?per_page=12", {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error("Token inválido ou sem escopo de leitura no Strava.");
+  }
+
+  const activities = await response.json();
+  return activities.map((activity) => ({
+    source: "strava",
+    category: "run",
+    title: activity.name || "Corrida",
+    date: normalizeDate(activity.start_date_local),
+    review: `${(activity.distance / 1000).toFixed(2)} km em ${(activity.moving_time / 60).toFixed(0)} min.`,
+    referenceUrl: `https://www.strava.com/activities/${activity.id}`
+  }));
+}
+
+async function syncLastfm() {
+  const user = state.settings.lastfmUser;
+  const apiKey = state.settings.lastfmApiKey;
+  if (!user || !apiKey) throw new Error("Preencha usuário e API key do Last.fm.");
+
+  const query = new URLSearchParams({
+    method: "user.getrecenttracks",
+    user,
+    api_key: apiKey,
+    format: "json",
+    limit: "12"
+  });
+
+  const response = await fetch(`https://ws.audioscrobbler.com/2.0/?${query.toString()}`);
+
+  if (!response.ok) {
+    throw new Error("Erro ao conectar no Last.fm.");
+  }
+
+  const data = await response.json();
+  const tracks = data?.recenttracks?.track ?? [];
+
+  return tracks.map((track) => ({
+    source: "lastfm",
+    category: "music",
+    title: `${track.artist["#text"]} — ${track.name}`,
+    date: normalizeDate(track.date?.["#text"] || new Date().toISOString()),
+    review: track.album?.["#text"] ? `Álbum: ${track.album["#text"]}` : "Faixa ouvida.",
+    referenceUrl: track.url || ""
+  }));
+}
+
+function handleNewPost(event) {
+  event.preventDefault();
+
+  const post = {
+    id: crypto.randomUUID(),
+    category: fields.category.value,
+    title: fields.title.value.trim(),
+    date: fields.date.value,
+    rating: fields.rating.value ? Number(fields.rating.value) : null,
+    review: fields.review.value.trim(),
+    referenceUrl: fields.referenceUrl.value.trim()
+  };
+
+  state.posts.unshift(post);
+  saveJson(STORAGE_KEYS.posts, state.posts);
+  reviewForm.reset();
+  setDefaultDate();
+  renderPosts();
+}
+
+function renderPosts() {
+  postsEl.innerHTML = "";
+
+  if (!state.posts.length) {
+    postsEl.innerHTML = "<p>Nenhum review ainda.</p>";
     return;
   }
 
-  snap.forEach(d => {
-    const e = d.data();
-    const div = document.createElement("div");
-    div.className = "card";
-    div.style.cursor = "pointer";
-    div.innerHTML = `<strong>${e.date.split("-").reverse().join("/")}</strong>`;
-    div.onclick = () => {
-      datePicker.value = e.date;
-      loadEntryForDate(e.date);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-    entriesList.appendChild(div);
+  const sorted = [...state.posts].sort((a, b) => (a.date < b.date ? 1 : -1));
+  sorted.forEach((post) => postsEl.appendChild(buildPostCard(post, true)));
+}
+
+function renderImports() {
+  importsEl.innerHTML = "";
+
+  if (!state.imports.length) {
+    importsEl.innerHTML = "<p>Nenhum item importado nesta sessão.</p>";
+    return;
+  }
+
+  state.imports.forEach((item) => {
+    const card = buildPostCard(item, false);
+    const importButton = document.createElement("button");
+    importButton.textContent = "Criar review desse item";
+    importButton.addEventListener("click", () => fillFormFromImport(item));
+    card.appendChild(importButton);
+    importsEl.appendChild(card);
   });
 }
 
-/* 📆 CALENDÁRIO */
-async function renderCalendar() {
-  calendarEl.innerHTML = "";
+function buildPostCard(item, allowDelete) {
+  const fragment = postTemplate.content.cloneNode(true);
+  const root = fragment.querySelector(".post");
+  root.querySelector(".tag").textContent = labelFromCategory(item.category, item.source);
+  root.querySelector("time").textContent = formatDate(item.date);
+  root.querySelector("h3").textContent = item.title || "Sem título";
+  root.querySelector(".rating").textContent = item.rating !== null && item.rating !== undefined ? `Nota: ${item.rating}/10` : "";
+  root.querySelector(".body").textContent = stripHtml(item.review || "");
 
-  const today = new Date();
-  const year = calendarYear;
-  const month = calendarMonth;
-
-  updateCalendarLabel();
-
-  const firstDay = new Date(year, month, 1).getDay();
-  const totalDays = new Date(year, month + 1, 0).getDate();
-
-  let filledDates = new Set();
-
-  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const end = `${year}-${String(month + 1).padStart(2, "0")}-${totalDays}`;
-
-  try {
-    const q = query(
-      collection(db, "entries"),
-      where("userId", "==", currentUser.uid),
-      where("date", ">=", start),
-      where("date", "<=", end)
-    );
-
-    const snap = await getDocs(q);
-    filledDates = new Set(snap.docs.map(d => d.data().date));
-  } catch {}
-
-  for (let i = 0; i < firstDay; i++) {
-    calendarEl.appendChild(document.createElement("div"));
+  const refLink = root.querySelector(".ref");
+  if (item.referenceUrl) {
+    refLink.href = item.referenceUrl;
+    refLink.textContent = "Abrir referência";
+  } else {
+    refLink.remove();
   }
 
-  for (let day = 1; day <= totalDays; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const div = document.createElement("div");
-    div.className = "day";
-    div.textContent = day;
+  const deleteButton = root.querySelector(".delete-btn");
+  if (!allowDelete) {
+    deleteButton.remove();
+  } else {
+    deleteButton.addEventListener("click", () => {
+      state.posts = state.posts.filter((post) => post.id !== item.id);
+      saveJson(STORAGE_KEYS.posts, state.posts);
+      renderPosts();
+    });
+  }
 
-    if (new Date(dateStr) > today) {
-      div.classList.add("disabled");
-    } else {
-      if (filledDates.has(dateStr)) div.classList.add("filled");
-      div.onclick = () => {
-        datePicker.value = dateStr;
-        loadEntryForDate(dateStr);
-      };
+  return fragment;
+}
+
+function fillFormFromImport(item) {
+  fields.category.value = item.category || "custom";
+  fields.title.value = item.title || "";
+  fields.date.value = item.date || new Date().toISOString().slice(0, 10);
+  fields.review.value = stripHtml(item.review || "");
+  fields.referenceUrl.value = item.referenceUrl || "";
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function hydrateSettingsForm() {
+  for (const [key, value] of Object.entries(state.settings)) {
+    if (fields[key]) {
+      fields[key].value = value;
     }
-
-    calendarEl.appendChild(div);
   }
 }
 
-/* 🏷 LABEL */
-function updateCalendarLabel() {
-  const d = new Date(calendarYear, calendarMonth);
-  calendarLabel.textContent = d.toLocaleDateString("pt-BR", {
-    month: "long",
-    year: "numeric"
-  });
+function loadJson(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-/* ◀ ▶ */
-prevMonthBtn.onclick = () => {
-  calendarMonth--;
-  if (calendarMonth < 0) {
-    calendarMonth = 11;
-    calendarYear--;
+function saveJson(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function setDefaultDate() {
+  fields.date.value = new Date().toISOString().slice(0, 10);
+}
+
+function normalizeDate(value) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date().toISOString().slice(0, 10);
   }
-  renderCalendar();
-};
 
-nextMonthBtn.onclick = () => {
-  const next = new Date(calendarYear, calendarMonth + 1);
-  const today = new Date();
-  if (next > new Date(today.getFullYear(), today.getMonth())) return;
+  return parsed.toISOString().slice(0, 10);
+}
 
-  calendarMonth++;
-  if (calendarMonth > 11) {
-    calendarMonth = 0;
-    calendarYear++;
+function formatDate(value) {
+  if (!value) return "Sem data";
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("pt-BR");
+}
+
+function labelFromCategory(category, source) {
+  const labels = {
+    book: "Livro",
+    movie: "Filme",
+    run: "Corrida",
+    music: "Música",
+    custom: "Livre"
+  };
+
+  const base = labels[category] ?? "Post";
+  return source ? `${base} • ${source}` : base;
+}
+
+function text(node, selector) {
+  return node.querySelector(selector)?.textContent?.trim() ?? "";
+}
+
+function stripHtml(value) {
+  const div = document.createElement("div");
+  div.innerHTML = value;
+  return div.textContent?.trim() ?? "";
+}
+
+async function fetchWithCorsFallback(url) {
+  const directResponse = await fetch(url);
+  if (directResponse.ok) {
+    return directResponse.text();
   }
-  renderCalendar();
-};
 
-/* 👁 TOGGLE */
-calendarTitle.onclick = () => {
-  calendarVisible = !calendarVisible;
-  calendarEl.style.display = calendarVisible ? "grid" : "none";
-  document.getElementById("calendarControls").style.display =
-    calendarVisible ? "flex" : "none";
-};
+  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const proxyResponse = await fetch(proxy);
+  if (!proxyResponse.ok) {
+    throw new Error("Não foi possível ler o feed remoto.");
+  }
+
+  return proxyResponse.text();
+}
