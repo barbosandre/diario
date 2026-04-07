@@ -1,82 +1,229 @@
+:root {
+  --bg: #111513;
+  --panel: #1a201d;
+  --soft: #212925;
+  --line: #2c3833;
+  --text: #f2f5f3;
+  --muted: #96a79e;
+  --accent: #00c030;
+  --danger: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: Arial, sans-serif;
-  max-width: 700px;
-  margin: 30px auto;
-  padding: 10px;
+  margin: 0;
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(circle at top, #1e2723, var(--bg));
+  color: var(--text);
+}
+
+.topbar {
+  max-width: 1080px;
+  margin: 28px auto 8px;
+  padding: 0 16px;
+}
+
+.brand-kicker {
+  margin: 0;
+  letter-spacing: 0.14em;
+  font-size: 11px;
+  color: var(--accent);
 }
 
 h1 {
-  text-align: center;
+  margin: 6px 0;
+  font-size: clamp(2rem, 6vw, 3.2rem);
 }
 
-textarea {
-  width: 100%;
-  height: 200px;
-  margin-top: 15px;
-  padding: 10px;
-  font-size: 14px;
+.subtitle {
+  margin: 0;
+  color: var(--muted);
 }
 
-button {
-  margin-top: 10px;
-  padding: 10px 15px;
-  cursor: pointer;
-}
-
-#status {
-  margin-top: 10px;
-  font-size: 14px;
+.container {
+  max-width: 1080px;
+  margin: 14px auto 34px;
+  padding: 0 16px;
+  display: grid;
+  gap: 16px;
 }
 
 .card {
-  border: 1px solid #ddd;
-  padding: 10px;
-  margin-top: 10px;
-  background: #fafafa;
+  background: color-mix(in srgb, var(--panel) 90%, black 10%);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
 }
 
-/* 📆 CALENDÁRIO */
-
-#calendarControls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-#calendarLabel {
-  font-weight: bold;
-  text-transform: capitalize;
-}
-
-#calendar {
+.form {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-  margin: 10px 0 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
-.day {
+label {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+input,
+textarea,
+select,
+button {
+  border: 1px solid #33423b;
+  border-radius: 10px;
   padding: 10px;
-  text-align: center;
-  border: 1px solid #ddd;
+  background: var(--soft);
+  color: var(--text);
+}
+
+textarea {
+  resize: vertical;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+button {
   cursor: pointer;
-  background: #f9f9f9;
-  user-select: none;
+  font-weight: 600;
 }
 
-.day:hover {
-  background: #eee;
+form button {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #00b020, #00d650);
+  border-color: #0ed252;
+  color: #09250f;
 }
 
-.day.filled {
-  background: #c8f7c5;
-  font-weight: bold;
+
+.sync-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
-.day.disabled {
-  background: #f0f0f0;
-  color: #aaa;
-  cursor: not-allowed;
+.sync-row button {
+  width: auto;
+  min-width: 120px;
+}
+
+.sync-status {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+.import-action {
+  width: auto;
+  background: #213227;
+  border-color: #3d5849;
+}
+
+.view-switch {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.switch {
+  background: #1d2622;
+}
+
+.switch.active {
+  background: #26312b;
+  border-color: #4f665a;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filter-btn {
+  width: auto;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.filter-btn.active {
+  border-color: var(--accent);
+  color: #ccffd9;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.post-item {
+  border: 1px solid #33403a;
+  border-radius: 12px;
+  padding: 12px;
+  background: #151c18;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pill {
+  background: #243129;
+  border: 1px solid #3a4b42;
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.title {
+  margin: 4px 0 6px;
+}
+
+.extra {
+  color: #d8f8e2;
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.body {
+  margin: 0 0 10px;
+  color: #d3dfd8;
+  white-space: pre-wrap;
+}
+
+.danger {
+  width: auto;
+  background: #382023;
+  border-color: #6a3238;
+  color: #ffc8c8;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+
+  .sync-row {
+    grid-template-columns: 1fr;
+  }
+
+  .sync-row button {
+    width: 100%;
+  }
 }
