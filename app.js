@@ -62,11 +62,13 @@ async function syncLetterboxd() {
   if (!user) {
     setFeedback(syncStatus, "Informe o username do Letterboxd.", "error");
     flashToast("Informe o username do Letterboxd.", "error");
+    syncStatus.textContent = "Informe o username do Letterboxd.";
     return;
   }
 
   localStorage.setItem(LETTERBOXD_USER_KEY, user);
   setFeedback(syncStatus, "Sincronizando...", "info");
+  syncStatus.textContent = "Sincronizando...";
   syncBtn.disabled = true;
 
   try {
@@ -81,6 +83,10 @@ async function syncLetterboxd() {
     const message = `Falha ao sincronizar: ${error.message}`;
     setFeedback(syncStatus, message, "error");
     flashToast(message, "error");
+    syncStatus.textContent = `Sincronizado com sucesso: ${items.length} itens importados.`;
+  } catch (error) {
+    console.error(error);
+    syncStatus.textContent = `Falha ao sincronizar: ${error.message}`;
   } finally {
     syncBtn.disabled = false;
   }
@@ -200,6 +206,8 @@ function handleSubmit(event) {
   flashToast("Post publicado com sucesso.", "success");
 }
 
+
+}
 
 function setView(viewName) {
   state.currentView = viewName;
