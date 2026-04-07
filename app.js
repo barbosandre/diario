@@ -1,350 +1,330 @@
-const STORAGE_KEYS = {
-  posts: "review_posts_v2",
-  settings: "integration_settings_v2"
+const STORAGE_KEY = "barboseiras_posts_v1";
+const LETTERBOXD_USER_KEY = "barboseiras_letterboxd_user";
+
+const TYPE_LABEL = {
+  filme: "Filme",
+  serie: "Série de TV",
+  livro: "Livro",
+  quadrinhos: "Quadrinhos",
+  videogame: "Video Games",
+  corrida: "Corridas",
+  musica: "Músicas",
+  album: "Álbuns",
+  livre: "Post livre"
 };
 
 const state = {
-  posts: loadJson(STORAGE_KEYS.posts, []),
+  posts: loadPosts(),
   imports: [],
-  settings: loadJson(STORAGE_KEYS.settings, {
-    goodreadsUserId: "",
-    goodreadsApiKey: "",
-    letterboxdUser: "",
-    stravaToken: "",
-    lastfmUser: "",
-    lastfmApiKey: ""
-  })
+  currentView: "timeline",
+  currentFilter: "all"
 };
 
-const reviewForm = document.getElementById("reviewForm");
-const postsEl = document.getElementById("posts");
+const form = document.getElementById("postForm");
+const typeInput = document.getElementById("type");
+const kmField = document.getElementById("kmField");
+const timeline = document.getElementById("timeline");
+const library = document.getElementById("library");
+const filters = document.getElementById("filters");
+const template = document.getElementById("postTemplate");
+const timelineView = document.getElementById("timelineView");
+const libraryView = document.getElementById("libraryView");
 const importsEl = document.getElementById("imports");
+const syncBtn = document.getElementById("syncLetterboxdBtn");
 const syncStatus = document.getElementById("syncStatus");
-const postTemplate = document.getElementById("postTemplate");
+const letterboxdInput = document.getElementById("letterboxdUser");
 
-const fields = {
-  category: document.getElementById("category"),
-  title: document.getElementById("title"),
-  date: document.getElementById("date"),
-  rating: document.getElementById("rating"),
-  review: document.getElementById("review"),
-  referenceUrl: document.getElementById("referenceUrl"),
-  goodreadsUserId: document.getElementById("goodreadsUserId"),
-  goodreadsApiKey: document.getElementById("goodreadsApiKey"),
-  letterboxdUser: document.getElementById("letterboxdUser"),
-  stravaToken: document.getElementById("stravaToken"),
-  lastfmUser: document.getElementById("lastfmUser"),
-  lastfmApiKey: document.getElementById("lastfmApiKey")
-};
+init();
 
-hydrateSettingsForm();
-setDefaultDate();
-renderPosts();
-renderImports();
+function init() {
+  document.getElementById("date").value = new Date().toISOString().slice(0, 10);
+  letterboxdInput.value = localStorage.getItem(LETTERBOXD_USER_KEY) || "";
 
-reviewForm.addEventListener("submit", handleNewPost);
-document.querySelectorAll("[data-action]").forEach((button) => {
-  button.addEventListener("click", () => runSync(button.dataset.action));
-});
+  typeInput.addEventListener("change", toggleKmField);
+  form.addEventListener("submit", handleSubmit);
+  syncBtn.addEventListener("click", syncLetterboxd);
 
-Object.entries(fields)
-  .filter(([key]) => key.includes("goodreads") || key.includes("letterboxd") || key.includes("strava") || key.includes("lastfm"))
-  .forEach(([key, input]) => {
-    input.addEventListener("change", () => {
-      state.settings[key] = input.value.trim();
-      saveJson(STORAGE_KEYS.settings, state.settings);
-    });
+  document.querySelectorAll(".switch").forEach((button) => {
+    button.addEventListener("click", () => setView(button.dataset.view));
   });
 
-async function runSync(action) {
-  syncStatus.textContent = "Sincronizando...";
-
-  try {
-    if (action === "sync-goodreads") {
-      state.imports = await syncGoodreads();
-    }
-
-    if (action === "sync-letterboxd") {
-      state.imports = await syncLetterboxd();
-    }
-
-    if (action === "sync-strava") {
-      state.imports = await syncStrava();
-    }
-
-    if (action === "sync-lastfm") {
-      state.imports = await syncLastfm();
-    }
-
-    renderImports();
-    syncStatus.textContent = `Importação concluída: ${state.imports.length} itens.`;
-  } catch (error) {
-    console.error(error);
-    syncStatus.textContent = `Falha ao sincronizar: ${error.message}`;
-  }
-}
-
-async function syncGoodreads() {
-  const userId = state.settings.goodreadsUserId;
-  if (!userId) throw new Error("Preencha o ID do Goodreads.");
-
-  const apiKeyPart = state.settings.goodreadsApiKey ? `?key=${encodeURIComponent(state.settings.goodreadsApiKey)}` : "";
-  const url = `https://www.goodreads.com/review/list_rss/${encodeURIComponent(userId)}${apiKeyPart}`;
-  const xmlText = await fetchWithCorsFallback(url);
-  const feed = new DOMParser().parseFromString(xmlText, "application/xml");
-  const items = [...feed.querySelectorAll("item")].slice(0, 12);
-
-  return items.map((item) => ({
-    source: "goodreads",
-    category: "book",
-    title: text(item, "title") || "Livro",
-    date: normalizeDate(text(item, "pubDate")),
-    review: text(item, "description") || "",
-    referenceUrl: text(item, "link") || ""
-  }));
+  buildFilters();
+  toggleKmField();
+  render();
+  renderImports();
 }
 
 async function syncLetterboxd() {
-  const user = state.settings.letterboxdUser;
-  if (!user) throw new Error("Preencha o username do Letterboxd.");
+  const user = letterboxdInput.value.trim();
 
-  const url = `https://letterboxd.com/${encodeURIComponent(user)}/rss/`;
-  const xmlText = await fetchWithCorsFallback(url);
-  const feed = new DOMParser().parseFromString(xmlText, "application/xml");
-  const items = [...feed.querySelectorAll("item")].slice(0, 12);
-
-  return items.map((item) => ({
-    source: "letterboxd",
-    category: "movie",
-    title: (text(item, "title") || "Filme").replace(`${user} watched `, ""),
-    date: normalizeDate(text(item, "pubDate")),
-    review: text(item, "description") || "",
-    referenceUrl: text(item, "link") || ""
-  }));
-}
-
-async function syncStrava() {
-  const token = state.settings.stravaToken;
-  if (!token) throw new Error("Preencha o token do Strava.");
-
-  const response = await fetch("https://www.strava.com/api/v3/athlete/activities?per_page=12", {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-
-  if (!response.ok) {
-    throw new Error("Token inválido ou sem escopo de leitura no Strava.");
-  }
-
-  const activities = await response.json();
-  return activities.map((activity) => ({
-    source: "strava",
-    category: "run",
-    title: activity.name || "Corrida",
-    date: normalizeDate(activity.start_date_local),
-    review: `${(activity.distance / 1000).toFixed(2)} km em ${(activity.moving_time / 60).toFixed(0)} min.`,
-    referenceUrl: `https://www.strava.com/activities/${activity.id}`
-  }));
-}
-
-async function syncLastfm() {
-  const user = state.settings.lastfmUser;
-  const apiKey = state.settings.lastfmApiKey;
-  if (!user || !apiKey) throw new Error("Preencha usuário e API key do Last.fm.");
-
-  const query = new URLSearchParams({
-    method: "user.getrecenttracks",
-    user,
-    api_key: apiKey,
-    format: "json",
-    limit: "12"
-  });
-
-  const response = await fetch(`https://ws.audioscrobbler.com/2.0/?${query.toString()}`);
-
-  if (!response.ok) {
-    throw new Error("Erro ao conectar no Last.fm.");
-  }
-
-  const data = await response.json();
-  const tracks = data?.recenttracks?.track ?? [];
-
-  return tracks.map((track) => ({
-    source: "lastfm",
-    category: "music",
-    title: `${track.artist["#text"]} — ${track.name}`,
-    date: normalizeDate(track.date?.["#text"] || new Date().toISOString()),
-    review: track.album?.["#text"] ? `Álbum: ${track.album["#text"]}` : "Faixa ouvida.",
-    referenceUrl: track.url || ""
-  }));
-}
-
-function handleNewPost(event) {
-  event.preventDefault();
-
-  const post = {
-    id: crypto.randomUUID(),
-    category: fields.category.value,
-    title: fields.title.value.trim(),
-    date: fields.date.value,
-    rating: fields.rating.value ? Number(fields.rating.value) : null,
-    review: fields.review.value.trim(),
-    referenceUrl: fields.referenceUrl.value.trim()
-  };
-
-  state.posts.unshift(post);
-  saveJson(STORAGE_KEYS.posts, state.posts);
-  reviewForm.reset();
-  setDefaultDate();
-  renderPosts();
-}
-
-function renderPosts() {
-  postsEl.innerHTML = "";
-
-  if (!state.posts.length) {
-    postsEl.innerHTML = "<p>Nenhum review ainda.</p>";
+  if (!user) {
+    syncStatus.textContent = "Informe o username do Letterboxd.";
     return;
   }
 
-  const sorted = [...state.posts].sort((a, b) => (a.date < b.date ? 1 : -1));
-  sorted.forEach((post) => postsEl.appendChild(buildPostCard(post, true)));
+  localStorage.setItem(LETTERBOXD_USER_KEY, user);
+  syncStatus.textContent = "Sincronizando...";
+  syncBtn.disabled = true;
+
+  try {
+    const items = await fetchLetterboxdFeed(user);
+    state.imports = items;
+    renderImports();
+    syncStatus.textContent = `Sincronizado com sucesso: ${items.length} itens importados.`;
+  } catch (error) {
+    console.error(error);
+    syncStatus.textContent = `Falha ao sincronizar: ${error.message}`;
+  } finally {
+    syncBtn.disabled = false;
+  }
+}
+
+async function fetchLetterboxdFeed(user) {
+  const rssUrl = `https://letterboxd.com/${encodeURIComponent(user)}/rss/`;
+
+  const strategies = [
+    async () => parseLetterboxdXml(await fetchText(rssUrl), user),
+    async () => parseLetterboxdXml(await fetchText(`https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`), user),
+    async () => parseLetterboxdJson(await fetchJson(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`), user)
+  ];
+
+  let lastError = new Error("Não foi possível carregar o feed do Letterboxd.");
+
+  for (const attempt of strategies) {
+    try {
+      const items = await attempt();
+      if (items.length) return items;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(lastError.message || "Falha ao importar o feed.");
+}
+
+function parseLetterboxdXml(xmlText, user) {
+  const feed = new DOMParser().parseFromString(xmlText, "application/xml");
+  const nodes = [...feed.querySelectorAll("item")].slice(0, 12);
+
+  return nodes.map((item) => ({
+    id: crypto.randomUUID(),
+    type: "filme",
+    title: (readText(item, "title") || "Filme").replace(`${user} watched `, "").replace(`${user} reviewed `, ""),
+    date: normalizeDate(readText(item, "pubDate")),
+    rating: null,
+    km: null,
+    content: stripHtml(readText(item, "description"))
+  }));
+}
+
+function parseLetterboxdJson(payload, user) {
+  const items = payload?.items ?? [];
+
+  return items.slice(0, 12).map((item) => ({
+    id: crypto.randomUUID(),
+    type: "filme",
+    title: (item.title || "Filme").replace(`${user} watched `, "").replace(`${user} reviewed `, ""),
+    date: normalizeDate(item.pubDate),
+    rating: null,
+    km: null,
+    content: stripHtml(item.description || "")
+  }));
+}
+
+async function fetchText(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Erro HTTP ${response.status}`);
+  return response.text();
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Erro HTTP ${response.status}`);
+  return response.json();
 }
 
 function renderImports() {
   importsEl.innerHTML = "";
 
   if (!state.imports.length) {
-    importsEl.innerHTML = "<p>Nenhum item importado nesta sessão.</p>";
+    importsEl.innerHTML = "<p>Nenhum item importado ainda.</p>";
     return;
   }
 
   state.imports.forEach((item) => {
-    const card = buildPostCard(item, false);
-    const importButton = document.createElement("button");
-    importButton.textContent = "Criar review desse item";
-    importButton.addEventListener("click", () => fillFormFromImport(item));
-    card.appendChild(importButton);
+    const card = renderPost(item, false);
+    const action = document.createElement("button");
+    action.className = "import-action";
+    action.textContent = "Adicionar na timeline";
+    action.addEventListener("click", () => {
+      state.posts.unshift({ ...item, id: crypto.randomUUID() });
+      savePosts();
+      render();
+    });
+
+    card.querySelector(".post-item").appendChild(action);
     importsEl.appendChild(card);
   });
 }
 
-function buildPostCard(item, allowDelete) {
-  const fragment = postTemplate.content.cloneNode(true);
-  const root = fragment.querySelector(".post");
-  root.querySelector(".tag").textContent = labelFromCategory(item.category, item.source);
-  root.querySelector("time").textContent = formatDate(item.date);
-  root.querySelector("h3").textContent = item.title || "Sem título";
-  root.querySelector(".rating").textContent = item.rating !== null && item.rating !== undefined ? `Nota: ${item.rating}/10` : "";
-  root.querySelector(".body").textContent = stripHtml(item.review || "");
+function handleSubmit(event) {
+  event.preventDefault();
 
-  const refLink = root.querySelector(".ref");
-  if (item.referenceUrl) {
-    refLink.href = item.referenceUrl;
-    refLink.textContent = "Abrir referência";
-  } else {
-    refLink.remove();
+  const post = {
+    id: crypto.randomUUID(),
+    type: document.getElementById("type").value,
+    title: document.getElementById("title").value.trim(),
+    date: document.getElementById("date").value,
+    rating: nullableNumber(document.getElementById("rating").value),
+    km: nullableNumber(document.getElementById("km").value),
+    content: document.getElementById("content").value.trim()
+  };
+
+  state.posts.unshift(post);
+  savePosts();
+
+  form.reset();
+  document.getElementById("date").value = new Date().toISOString().slice(0, 10);
+  toggleKmField();
+  render();
+}
+
+function setView(viewName) {
+  state.currentView = viewName;
+
+  document.querySelectorAll(".switch").forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === viewName);
+  });
+
+  timelineView.classList.toggle("hidden", viewName !== "timeline");
+  libraryView.classList.toggle("hidden", viewName !== "library");
+}
+
+function buildFilters() {
+  const entries = [{ key: "all", label: "Todos" }].concat(
+    Object.entries(TYPE_LABEL).map(([key, label]) => ({ key, label }))
+  );
+
+  filters.innerHTML = "";
+  entries.forEach((entry) => {
+    const btn = document.createElement("button");
+    btn.className = "filter-btn";
+    btn.textContent = entry.label;
+    btn.classList.toggle("active", entry.key === state.currentFilter);
+    btn.addEventListener("click", () => {
+      state.currentFilter = entry.key;
+      buildFilters();
+      renderLibrary();
+    });
+    filters.appendChild(btn);
+  });
+}
+
+function render() {
+  renderTimeline();
+  renderLibrary();
+}
+
+function renderTimeline() {
+  timeline.innerHTML = "";
+  const sorted = [...state.posts].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  if (!sorted.length) {
+    timeline.innerHTML = "<p>Nenhum post ainda.</p>";
+    return;
   }
 
-  const deleteButton = root.querySelector(".delete-btn");
-  if (!allowDelete) {
+  sorted.forEach((post) => timeline.appendChild(renderPost(post, true)));
+}
+
+function renderLibrary() {
+  library.innerHTML = "";
+
+  const filtered = state.currentFilter === "all"
+    ? state.posts
+    : state.posts.filter((post) => post.type === state.currentFilter);
+
+  const sorted = [...filtered].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  if (!sorted.length) {
+    library.innerHTML = "<p>Nenhum item nesse tipo.</p>";
+    return;
+  }
+
+  sorted.forEach((post) => library.appendChild(renderPost(post, true)));
+}
+
+function renderPost(post, showDelete) {
+  const clone = template.content.cloneNode(true);
+  const root = clone.querySelector(".post-item");
+
+  root.querySelector(".pill").textContent = TYPE_LABEL[post.type] || "Post";
+  root.querySelector("time").textContent = toPtBr(post.date);
+  root.querySelector(".title").textContent = post.title || "Sem título";
+  root.querySelector(".body").textContent = post.content || "";
+
+  const extras = [];
+  if (post.rating !== null && post.rating !== undefined) extras.push(`Nota: ${post.rating}/10`);
+  if (post.type === "corrida" && post.km !== null && post.km !== undefined) extras.push(`Distância: ${post.km.toFixed(2)} km`);
+  root.querySelector(".extra").textContent = extras.join(" • ");
+
+  const deleteButton = root.querySelector(".danger");
+  if (!showDelete) {
     deleteButton.remove();
   } else {
     deleteButton.addEventListener("click", () => {
-      state.posts = state.posts.filter((post) => post.id !== item.id);
-      saveJson(STORAGE_KEYS.posts, state.posts);
-      renderPosts();
+      state.posts = state.posts.filter((item) => item.id !== post.id);
+      savePosts();
+      render();
     });
   }
 
-  return fragment;
+  return clone;
 }
 
-function fillFormFromImport(item) {
-  fields.category.value = item.category || "custom";
-  fields.title.value = item.title || "";
-  fields.date.value = item.date || new Date().toISOString().slice(0, 10);
-  fields.review.value = stripHtml(item.review || "");
-  fields.referenceUrl.value = item.referenceUrl || "";
-  window.scrollTo({ top: 0, behavior: "smooth" });
+function toggleKmField() {
+  const isRunning = typeInput.value === "corrida";
+  kmField.classList.toggle("hidden", !isRunning);
 }
 
-function hydrateSettingsForm() {
-  for (const [key, value] of Object.entries(state.settings)) {
-    if (fields[key]) {
-      fields[key].value = value;
-    }
-  }
+function nullableNumber(value) {
+  if (value === "") return null;
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
 }
 
-function loadJson(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? JSON.parse(raw) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveJson(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-function setDefaultDate() {
-  fields.date.value = new Date().toISOString().slice(0, 10);
+function toPtBr(dateStr) {
+  if (!dateStr) return "Sem data";
+  const date = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString("pt-BR");
 }
 
 function normalizeDate(value) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  return parsed.toISOString().slice(0, 10);
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return new Date().toISOString().slice(0, 10);
+  return date.toISOString().slice(0, 10);
 }
 
-function formatDate(value) {
-  if (!value) return "Sem data";
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleDateString("pt-BR");
+function readText(node, selector) {
+  return node.querySelector(selector)?.textContent?.trim() || "";
 }
 
-function labelFromCategory(category, source) {
-  const labels = {
-    book: "Livro",
-    movie: "Filme",
-    run: "Corrida",
-    music: "Música",
-    custom: "Livre"
-  };
-
-  const base = labels[category] ?? "Post";
-  return source ? `${base} • ${source}` : base;
-}
-
-function text(node, selector) {
-  return node.querySelector(selector)?.textContent?.trim() ?? "";
-}
-
-function stripHtml(value) {
+function stripHtml(raw) {
   const div = document.createElement("div");
-  div.innerHTML = value;
-  return div.textContent?.trim() ?? "";
+  div.innerHTML = raw;
+  return div.textContent?.trim() || "";
 }
 
-async function fetchWithCorsFallback(url) {
-  const directResponse = await fetch(url);
-  if (directResponse.ok) {
-    return directResponse.text();
+function loadPosts() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
+}
 
-  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-  const proxyResponse = await fetch(proxy);
-  if (!proxyResponse.ok) {
-    throw new Error("Não foi possível ler o feed remoto.");
-  }
-
-  return proxyResponse.text();
+function savePosts() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.posts));
 }

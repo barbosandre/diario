@@ -3,72 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Minha Central de Reviews</title>
+  <title>Barboseiras</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="hero">
-    <p class="badge">SITE PESSOAL</p>
-    <h1>Minha Central de Reviews</h1>
-    <p class="subtitle">
-      Registre o que você leu, assistiu, correu e ouviu — e conecte com Goodreads,
-      Letterboxd, Strava e Last.fm.
-    </p>
+  <header class="topbar">
+    <div>
+      <p class="brand-kicker">PROJETO PESSOAL</p>
+      <h1>Barboseiras</h1>
+      <p class="subtitle">um local para que o Barbosa expurgue suas ideias.</p>
+    </div>
   </header>
 
-  <main class="layout">
-    <section class="panel">
-      <h2>⚙️ Integrações</h2>
-      <p class="hint">As configurações ficam salvas só no seu navegador.</p>
-
-      <div class="integration-grid">
-        <article class="integration-card">
-          <h3>📚 Goodreads</h3>
-          <input id="goodreadsUserId" type="text" placeholder="ID do usuário" />
-          <input id="goodreadsApiKey" type="password" placeholder="API key (opcional)" />
-          <button data-action="sync-goodreads">Importar do feed</button>
-        </article>
-
-        <article class="integration-card">
-          <h3>🎬 Letterboxd</h3>
-          <input id="letterboxdUser" type="text" placeholder="username" />
-          <button data-action="sync-letterboxd">Importar via RSS</button>
-        </article>
-
-        <article class="integration-card">
-          <h3>🏃 Strava</h3>
-          <input id="stravaToken" type="password" placeholder="Bearer token" />
-          <button data-action="sync-strava">Importar atividades</button>
-        </article>
-
-        <article class="integration-card">
-          <h3>🎧 Last.fm</h3>
-          <input id="lastfmUser" type="text" placeholder="username" />
-          <input id="lastfmApiKey" type="password" placeholder="API key" />
-          <button data-action="sync-lastfm">Importar scrobbles</button>
-        </article>
-      </div>
-
-      <div id="syncStatus" class="status"></div>
-    </section>
-
-    <section class="panel">
-      <h2>✍️ Novo review</h2>
-      <form id="reviewForm" class="form-grid">
+  <main class="container">
+    <section class="composer card">
+      <h2>Novo post</h2>
+      <form id="postForm" class="form">
         <label>
-          Categoria
-          <select id="category" required>
-            <option value="book">Livro</option>
-            <option value="movie">Filme/Série</option>
-            <option value="run">Corrida</option>
-            <option value="music">Música</option>
-            <option value="custom">Livre</option>
+          Tipo
+          <select id="type" required>
+            <option value="filme">Filme</option>
+            <option value="serie">Série de TV</option>
+            <option value="livro">Livro</option>
+            <option value="quadrinhos">Quadrinhos</option>
+            <option value="videogame">Video Games</option>
+            <option value="corrida">Corridas</option>
+            <option value="musica">Músicas</option>
+            <option value="album">Álbuns</option>
+            <option value="livre">Post livre</option>
           </select>
         </label>
 
         <label>
           Título
-          <input id="title" type="text" placeholder="Ex.: Duna" required />
+          <input id="title" type="text" placeholder="Ex.: Blade Runner" required />
         </label>
 
         <label>
@@ -77,46 +45,64 @@
         </label>
 
         <label>
-          Nota (0-10)
-          <input id="rating" type="number" min="0" max="10" step="0.5" />
+          Nota (opcional)
+          <input id="rating" type="number" min="0" max="10" step="0.5" placeholder="0 a 10" />
+        </label>
+
+        <label id="kmField" class="hidden">
+          Quilometragem (km)
+          <input id="km" type="number" min="0" step="0.01" placeholder="Ex.: 7.30" />
         </label>
 
         <label class="full">
-          Review
-          <textarea id="review" rows="5" placeholder="O que você achou?"></textarea>
+          Texto
+          <textarea id="content" rows="6" placeholder="Escreva seu post/review..."></textarea>
         </label>
 
-        <label class="full">
-          Link de referência (opcional)
-          <input id="referenceUrl" type="url" placeholder="https://..." />
-        </label>
-
-        <button type="submit">Salvar review</button>
+        <button type="submit">Publicar</button>
       </form>
     </section>
 
-    <section class="panel">
-      <h2>📥 Itens importados</h2>
-      <div id="imports" class="stack"></div>
+
+    <section class="card">
+      <h2>Sincronizar Letterboxd</h2>
+      <div class="sync-row">
+        <input id="letterboxdUser" type="text" placeholder="username do Letterboxd" />
+        <button id="syncLetterboxdBtn" type="button">Sincronizar</button>
+      </div>
+      <p id="syncStatus" class="sync-status"></p>
+      <div id="imports" class="list"></div>
     </section>
 
-    <section class="panel">
-      <h2>🗂️ Meu feed</h2>
-      <div id="posts" class="stack"></div>
+    <section class="card">
+      <div class="view-switch">
+        <button class="switch active" data-view="timeline">Timeline</button>
+        <button class="switch" data-view="library">Biblioteca</button>
+      </div>
+
+      <div id="timelineView">
+        <h2>Timeline</h2>
+        <div id="timeline" class="list"></div>
+      </div>
+
+      <div id="libraryView" class="hidden">
+        <h2>Biblioteca por tipo</h2>
+        <div id="filters" class="filters"></div>
+        <div id="library" class="list"></div>
+      </div>
     </section>
   </main>
 
   <template id="postTemplate">
-    <article class="post">
-      <div class="post-meta">
-        <span class="tag"></span>
+    <article class="post-item">
+      <div class="meta">
+        <span class="pill"></span>
         <time></time>
       </div>
-      <h3></h3>
-      <p class="rating"></p>
+      <h3 class="title"></h3>
+      <p class="extra"></p>
       <p class="body"></p>
-      <a class="ref" target="_blank" rel="noreferrer"></a>
-      <button class="delete-btn">Excluir</button>
+      <button class="danger">Excluir</button>
     </article>
   </template>
 
