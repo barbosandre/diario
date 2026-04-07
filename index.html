@@ -13,18 +13,11 @@
       <h1>Barboseiras</h1>
       <p class="subtitle">um local para que o Barbosa expurgue suas ideias.</p>
     </div>
-    <div class="top-actions">
-      <button id="exportBtn" type="button">Exportar backup</button>
-      <label class="import-label">
-        Importar backup
-        <input id="importFile" type="file" accept="application/json" hidden />
-      </label>
-    </div>
   </header>
 
   <main class="container">
     <section class="composer card">
-      <h2 id="composerTitle">Novo post</h2>
+      <h2>Novo post</h2>
       <form id="postForm" class="form">
         <label>
           Tipo
@@ -43,7 +36,7 @@
 
         <label>
           Título
-          <input id="title" type="text" minlength="2" maxlength="120" placeholder="Ex.: Blade Runner" required />
+          <input id="title" type="text" placeholder="Ex.: Blade Runner" required />
         </label>
 
         <label>
@@ -52,27 +45,25 @@
         </label>
 
         <label>
-          Nota (0-10)
-          <input id="rating" type="number" min="0" max="10" step="0.5" placeholder="Opcional" />
+          Nota (opcional)
+          <input id="rating" type="number" min="0" max="10" step="0.5" placeholder="0 a 10" />
         </label>
 
         <label id="kmField" class="hidden">
           Quilometragem (km)
-          <input id="km" type="number" min="0" max="200" step="0.01" placeholder="Ex.: 7.30" />
+          <input id="km" type="number" min="0" step="0.01" placeholder="Ex.: 7.30" />
         </label>
 
         <label class="full">
           Texto
-          <textarea id="content" rows="6" maxlength="2400" placeholder="Escreva seu post/review..."></textarea>
+          <textarea id="content" rows="6" placeholder="Escreva seu post/review..."></textarea>
         </label>
 
-        <div class="form-actions full">
-          <button id="submitBtn" type="submit">Publicar</button>
-          <button id="cancelEditBtn" type="button" class="hidden secondary">Cancelar edição</button>
-        </div>
+        <button type="submit">Publicar</button>
       </form>
-      <p id="postStatus" class="feedback" aria-live="polite"></p>
+      <p id="postStatus" class="feedback"></p>
     </section>
+
 
     <section class="card">
       <h2>Sincronizar Letterboxd</h2>
@@ -80,21 +71,12 @@
         <input id="letterboxdUser" type="text" placeholder="username do Letterboxd" />
         <button id="syncLetterboxdBtn" type="button">Sincronizar</button>
       </div>
-      <p id="syncStatus" class="feedback" aria-live="polite"></p>
+      <p id="syncStatus" class="feedback"></p>
+      <p id="syncStatus" class="sync-status"></p>
       <div id="imports" class="list"></div>
     </section>
 
     <section class="card">
-      <div class="controls">
-        <input id="searchInput" type="search" placeholder="Buscar por título ou texto..." />
-        <select id="sortSelect">
-          <option value="newest">Mais recentes</option>
-          <option value="oldest">Mais antigos</option>
-          <option value="rating">Melhor nota</option>
-          <option value="title">Título (A-Z)</option>
-        </select>
-      </div>
-
       <div class="view-switch">
         <button class="switch active" data-view="timeline">Timeline</button>
         <button class="switch" data-view="library">Biblioteca</button>
@@ -110,12 +92,6 @@
         <div id="filters" class="filters"></div>
         <div id="library" class="list"></div>
       </div>
-
-      <div class="pagination">
-        <button id="prevPageBtn" type="button" class="secondary">Anterior</button>
-        <span id="pageLabel">Página 1</span>
-        <button id="nextPageBtn" type="button" class="secondary">Próxima</button>
-      </div>
     </section>
   </main>
 
@@ -128,15 +104,11 @@
       <h3 class="title"></h3>
       <p class="extra"></p>
       <p class="body"></p>
-      <div class="row-actions">
-        <button class="secondary edit-btn">Editar</button>
-        <button class="secondary duplicate-btn">Duplicar</button>
-        <button class="danger delete-btn">Excluir</button>
-      </div>
+      <button class="danger">Excluir</button>
     </article>
   </template>
 
-  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast hidden"></div>
 
   <script type="module" src="app.js"></script>
 </body>
