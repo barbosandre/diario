@@ -1,287 +1,187 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc,
-  collection,
-  query,
-  where,
-  orderBy,
-  getDocs,
-  serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+const STORAGE_KEY = "barboseiras_posts_v1";
 
-/* 🔥 CONFIG FIREBASE */
-const firebaseConfig = {
-    apiKey: "AIzaSyDW-Om3EpMFVK5H1BfHKkR2IFz5Qpj7IFI",
-    authDomain: "diario-40d9e.firebaseapp.com",
-    projectId: "diario-40d9e",
-    storageBucket: "diario-40d9e.firebasestorage.app",
-    messagingSenderId: "39169574766",
-    appId: "1:39169574766:web:0ef47ca500c2d8d8dba37f",
-    measurementId: "G-SLGTSXX5QN"
-  };
- 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
-
-/* 📌 ELEMENTOS */
-const loginBtn = document.getElementById("login");
-const appEl = document.getElementById("app");
-const diary = document.getElementById("diary");
-const datePicker = document.getElementById("datePicker");
-const saveBtn = document.getElementById("saveBtn");
-const statusEl = document.getElementById("status");
-const pastEl = document.getElementById("past");
-const entriesList = document.getElementById("entriesList");
-const calendarEl = document.getElementById("calendar");
-
-/* 📆 CONTROLES */
-const prevMonthBtn = document.getElementById("prevMonth");
-const nextMonthBtn = document.getElementById("nextMonth");
-const calendarLabel = document.getElementById("calendarLabel");
-const calendarTitle = document.getElementById("calendarTitle");
-
-/* 🔁 ESTADO */
-let currentUser = null;
-let currentDate = null;
-let calendarMonth = null;
-let calendarYear = null;
-let calendarVisible = true;
-
-/* 🔐 LOGIN */
-loginBtn.onclick = async () => {
-  const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
-
-  currentUser = result.user;
-
-  const today = new Date();
-  calendarMonth = today.getMonth();
-  calendarYear = today.getFullYear();
-
-  loginBtn.hidden = true;
-  appEl.hidden = false;
-
-  setupDatePicker();
-  loadAllEntries();
-  renderCalendar();
+const TYPE_LABEL = {
+  filme: "Filme",
+  serie: "Série de TV",
+  livro: "Livro",
+  quadrinhos: "Quadrinhos",
+  videogame: "Video Games",
+  corrida: "Corridas",
+  musica: "Músicas",
+  album: "Álbuns",
+  livre: "Post livre"
 };
 
-/* 📅 DATE PICKER */
-function setupDatePicker() {
-  const today = new Date().toISOString().split("T")[0];
-  datePicker.max = today;
-  datePicker.value = today;
-
-  loadEntryForDate(today);
-
-  datePicker.onchange = () => {
-    loadEntryForDate(datePicker.value);
-  };
-}
-
-/* 📖 CARREGAR ENTRADA */
-async function loadEntryForDate(dateStr) {
-  currentDate = dateStr;
-  diary.value = "";
-  statusEl.textContent = "";
-  pastEl.innerHTML = "";
-
-  const [year, month, day] = dateStr.split("-").map(Number);
-  const id = `${currentUser.uid}_${dateStr}`;
-
-  const ref = doc(db, "entries", id);
-  const snap = await getDoc(ref);
-
-  if (snap.exists()) {
-    diary.value = snap.data().text || "";
-  }
-
-  loadPastMemories(day, month, year);
-}
-
-/* 💾 SALVAR */
-saveBtn.onclick = async () => {
-  if (!currentDate) return;
-
-  saveBtn.disabled = true;
-  saveBtn.textContent = "Salvando...";
-  statusEl.textContent = "";
-
-  const [year, month, day] = currentDate.split("-").map(Number);
-  const ref = doc(db, "entries", `${currentUser.uid}_${currentDate}`);
-
-  try {
-    await setDoc(ref, {
-      userId: currentUser.uid,
-      date: currentDate,
-      day,
-      month,
-      year,
-      text: diary.value,
-      updatedAt: serverTimestamp()
-    });
-
-    statusEl.textContent = "✅ Diário salvo com sucesso!";
-    loadAllEntries();
-    renderCalendar();
-  } catch {
-    statusEl.textContent = "❌ Erro ao salvar.";
-  } finally {
-    saveBtn.disabled = false;
-    saveBtn.textContent = "Salvar diário";
-  }
+const state = {
+  posts: loadPosts(),
+  currentView: "timeline",
+  currentFilter: "all"
 };
 
-/* ⏪ MEMÓRIAS DO MESMO DIA */
-async function loadPastMemories(day, month, year) {
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", currentUser.uid),
-    where("day", "==", day),
-    where("month", "==", month),
-    where("year", "<", year),
-    orderBy("year", "desc")
+const form = document.getElementById("postForm");
+const typeInput = document.getElementById("type");
+const kmField = document.getElementById("kmField");
+const timeline = document.getElementById("timeline");
+const library = document.getElementById("library");
+const filters = document.getElementById("filters");
+const template = document.getElementById("postTemplate");
+const timelineView = document.getElementById("timelineView");
+const libraryView = document.getElementById("libraryView");
+
+init();
+
+function init() {
+  document.getElementById("date").value = new Date().toISOString().slice(0, 10);
+  typeInput.addEventListener("change", toggleKmField);
+  form.addEventListener("submit", handleSubmit);
+
+  document.querySelectorAll(".switch").forEach((button) => {
+    button.addEventListener("click", () => setView(button.dataset.view));
+  });
+
+  buildFilters();
+  toggleKmField();
+  render();
+}
+
+function handleSubmit(event) {
+  event.preventDefault();
+
+  const post = {
+    id: crypto.randomUUID(),
+    type: document.getElementById("type").value,
+    title: document.getElementById("title").value.trim(),
+    date: document.getElementById("date").value,
+    rating: nullableNumber(document.getElementById("rating").value),
+    km: nullableNumber(document.getElementById("km").value),
+    content: document.getElementById("content").value.trim()
+  };
+
+  state.posts.unshift(post);
+  savePosts();
+
+  form.reset();
+  document.getElementById("date").value = new Date().toISOString().slice(0, 10);
+  toggleKmField();
+  render();
+}
+
+function setView(viewName) {
+  state.currentView = viewName;
+
+  document.querySelectorAll(".switch").forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === viewName);
+  });
+
+  timelineView.classList.toggle("hidden", viewName !== "timeline");
+  libraryView.classList.toggle("hidden", viewName !== "library");
+}
+
+function buildFilters() {
+  const entries = [{ key: "all", label: "Todos" }].concat(
+    Object.entries(TYPE_LABEL).map(([key, label]) => ({ key, label }))
   );
 
-  const snap = await getDocs(q);
-
-  snap.forEach(d => {
-    const e = d.data();
-    const div = document.createElement("div");
-    div.className = "card";
-    div.innerHTML = `<strong>${e.day}/${e.month}/${e.year}</strong><p>${e.text || ""}</p>`;
-    pastEl.appendChild(div);
+  filters.innerHTML = "";
+  entries.forEach((entry) => {
+    const btn = document.createElement("button");
+    btn.className = "filter-btn";
+    btn.textContent = entry.label;
+    btn.classList.toggle("active", entry.key === state.currentFilter);
+    btn.addEventListener("click", () => {
+      state.currentFilter = entry.key;
+      buildFilters();
+      renderLibrary();
+    });
+    filters.appendChild(btn);
   });
 }
 
-/* 📚 TODAS MEMÓRIAS */
-async function loadAllEntries() {
-  entriesList.innerHTML = "Carregando...";
+function render() {
+  renderTimeline();
+  renderLibrary();
+}
 
-  const q = query(
-    collection(db, "entries"),
-    where("userId", "==", currentUser.uid),
-    orderBy("date", "desc")
-  );
+function renderTimeline() {
+  timeline.innerHTML = "";
+  const sorted = [...state.posts].sort((a, b) => (a.date < b.date ? 1 : -1));
 
-  const snap = await getDocs(q);
-  entriesList.innerHTML = "";
-
-  if (!snap.size) {
-    entriesList.innerHTML = "<p>Nenhuma memória salva.</p>";
+  if (!sorted.length) {
+    timeline.innerHTML = "<p>Nenhum post ainda.</p>";
     return;
   }
 
-  snap.forEach(d => {
-    const e = d.data();
-    const div = document.createElement("div");
-    div.className = "card";
-    div.style.cursor = "pointer";
-    div.innerHTML = `<strong>${e.date.split("-").reverse().join("/")}</strong>`;
-    div.onclick = () => {
-      datePicker.value = e.date;
-      loadEntryForDate(e.date);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    };
-    entriesList.appendChild(div);
-  });
+  sorted.forEach((post) => timeline.appendChild(renderPost(post)));
 }
 
-/* 📆 CALENDÁRIO */
-async function renderCalendar() {
-  calendarEl.innerHTML = "";
+function renderLibrary() {
+  library.innerHTML = "";
 
-  const today = new Date();
-  const year = calendarYear;
-  const month = calendarMonth;
+  const filtered = state.currentFilter === "all"
+    ? state.posts
+    : state.posts.filter((post) => post.type === state.currentFilter);
 
-  updateCalendarLabel();
+  const sorted = [...filtered].sort((a, b) => (a.date < b.date ? 1 : -1));
 
-  const firstDay = new Date(year, month, 1).getDay();
-  const totalDays = new Date(year, month + 1, 0).getDate();
+  if (!sorted.length) {
+    library.innerHTML = "<p>Nenhum item nesse tipo.</p>";
+    return;
+  }
 
-  let filledDates = new Set();
+  sorted.forEach((post) => library.appendChild(renderPost(post)));
+}
 
-  const start = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-  const end = `${year}-${String(month + 1).padStart(2, "0")}-${totalDays}`;
+function renderPost(post) {
+  const clone = template.content.cloneNode(true);
+  const root = clone.querySelector(".post-item");
 
+  root.querySelector(".pill").textContent = TYPE_LABEL[post.type] || "Post";
+  root.querySelector("time").textContent = toPtBr(post.date);
+  root.querySelector(".title").textContent = post.title || "Sem título";
+  root.querySelector(".body").textContent = post.content || "";
+
+  const extras = [];
+  if (post.rating !== null && post.rating !== undefined) extras.push(`Nota: ${post.rating}/10`);
+  if (post.type === "corrida" && post.km !== null && post.km !== undefined) extras.push(`Distância: ${post.km.toFixed(2)} km`);
+  root.querySelector(".extra").textContent = extras.join(" • ");
+
+  const deleteButton = root.querySelector(".danger");
+  deleteButton.addEventListener("click", () => {
+    state.posts = state.posts.filter((item) => item.id !== post.id);
+    savePosts();
+    render();
+  });
+
+  return clone;
+}
+
+function toggleKmField() {
+  const isRunning = typeInput.value === "corrida";
+  kmField.classList.toggle("hidden", !isRunning);
+}
+
+function nullableNumber(value) {
+  if (value === "") return null;
+  const num = Number(value);
+  return Number.isNaN(num) ? null : num;
+}
+
+function toPtBr(dateStr) {
+  if (!dateStr) return "Sem data";
+  const date = new Date(`${dateStr}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString("pt-BR");
+}
+
+function loadPosts() {
   try {
-    const q = query(
-      collection(db, "entries"),
-      where("userId", "==", currentUser.uid),
-      where("date", ">=", start),
-      where("date", "<=", end)
-    );
-
-    const snap = await getDocs(q);
-    filledDates = new Set(snap.docs.map(d => d.data().date));
-  } catch {}
-
-  for (let i = 0; i < firstDay; i++) {
-    calendarEl.appendChild(document.createElement("div"));
-  }
-
-  for (let day = 1; day <= totalDays; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const div = document.createElement("div");
-    div.className = "day";
-    div.textContent = day;
-
-    if (new Date(dateStr) > today) {
-      div.classList.add("disabled");
-    } else {
-      if (filledDates.has(dateStr)) div.classList.add("filled");
-      div.onclick = () => {
-        datePicker.value = dateStr;
-        loadEntryForDate(dateStr);
-      };
-    }
-
-    calendarEl.appendChild(div);
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
 }
 
-/* 🏷 LABEL */
-function updateCalendarLabel() {
-  const d = new Date(calendarYear, calendarMonth);
-  calendarLabel.textContent = d.toLocaleDateString("pt-BR", {
-    month: "long",
-    year: "numeric"
-  });
+function savePosts() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.posts));
 }
-
-/* ◀ ▶ */
-prevMonthBtn.onclick = () => {
-  calendarMonth--;
-  if (calendarMonth < 0) {
-    calendarMonth = 11;
-    calendarYear--;
-  }
-  renderCalendar();
-};
-
-nextMonthBtn.onclick = () => {
-  const next = new Date(calendarYear, calendarMonth + 1);
-  const today = new Date();
-  if (next > new Date(today.getFullYear(), today.getMonth())) return;
-
-  calendarMonth++;
-  if (calendarMonth > 11) {
-    calendarMonth = 0;
-    calendarYear++;
-  }
-  renderCalendar();
-};
-
-/* 👁 TOGGLE */
-calendarTitle.onclick = () => {
-  calendarVisible = !calendarVisible;
-  calendarEl.style.display = calendarVisible ? "grid" : "none";
-  document.getElementById("calendarControls").style.display =
-    calendarVisible ? "flex" : "none";
-};
