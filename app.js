@@ -1,5 +1,4 @@
 const STORAGE_KEY = "barboseiras_posts_v1";
-const LEGACY_STORAGE_KEYS = ["review_posts_v2", "diario_posts", "posts"];
 const LETTERBOXD_USER_KEY = "barboseiras_letterboxd_user";
 
 const TYPE_LABEL = {
@@ -63,11 +62,13 @@ async function syncLetterboxd() {
   if (!user) {
     setFeedback(syncStatus, "Informe o username do Letterboxd.", "error");
     flashToast("Informe o username do Letterboxd.", "error");
+    syncStatus.textContent = "Informe o username do Letterboxd.";
     return;
   }
 
   localStorage.setItem(LETTERBOXD_USER_KEY, user);
   setFeedback(syncStatus, "Sincronizando...", "info");
+  syncStatus.textContent = "Sincronizando...";
   syncBtn.disabled = true;
 
   try {
@@ -82,6 +83,10 @@ async function syncLetterboxd() {
     const message = `Falha ao sincronizar: ${error.message}`;
     setFeedback(syncStatus, message, "error");
     flashToast(message, "error");
+    syncStatus.textContent = `Sincronizado com sucesso: ${items.length} itens importados.`;
+  } catch (error) {
+    console.error(error);
+    syncStatus.textContent = `Falha ao sincronizar: ${error.message}`;
   } finally {
     syncBtn.disabled = false;
   }
@@ -92,9 +97,7 @@ async function fetchLetterboxdFeed(user) {
 
   const strategies = [
     async () => parseLetterboxdXml(await fetchText(rssUrl), user),
-    async () => parseLetterboxdXml(await fetchViaAllOrigins(rssUrl), user),
-    async () => parseLetterboxdXml(await fetchText(`https://cors.isomorphic-git.org/${rssUrl}`), user),
-    async () => parseLetterboxdXml(await fetchText(`https://r.jina.ai/http://letterboxd.com/${encodeURIComponent(user)}/rss/`), user),
+    async () => parseLetterboxdXml(await fetchText(`https://api.allorigins.win/raw?url=${encodeURIComponent(rssUrl)}`), user),
     async () => parseLetterboxdJson(await fetchJson(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`), user)
   ];
 
@@ -153,14 +156,6 @@ async function fetchJson(url) {
   return response.json();
 }
 
-
-async function fetchViaAllOrigins(url) {
-  const payload = await fetchJson(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-  const contents = payload?.contents || "";
-  if (!contents) throw new Error("Proxy retornou resposta vazia.");
-  return contents;
-}
-
 function renderImports() {
   importsEl.innerHTML = "";
 
@@ -211,6 +206,8 @@ function handleSubmit(event) {
   flashToast("Post publicado com sucesso.", "success");
 }
 
+
+}
 
 function setView(viewName) {
   state.currentView = viewName;
@@ -362,57 +359,14 @@ function flashToast(message, tone = "success") {
 }
 
 function loadPosts() {
-  const keysToTry = [STORAGE_KEY, ...LEGACY_STORAGE_KEYS];
-  const collected = [];
-
-  for (const key of keysToTry) {
-    try {
-      const raw = localStorage.getItem(key);
-      if (!raw) continue;
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        collected.push(...parsed);
-      }
-    } catch {
-      // ignora key inválida e segue
-    }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
-
-  const deduped = dedupePosts(collected);
-
-  if (deduped.length) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(deduped));
-  }
-
-  return deduped;
-}
-
-function dedupePosts(posts) {
-  const seen = new Set();
-  const normalized = [];
-
-  for (const post of posts) {
-    if (!post) continue;
-    const fallbackId = `${post.type || "livre"}-${post.date || ""}-${post.title || ""}`;
-    const id = post.id || fallbackId;
-    if (seen.has(id)) continue;
-    seen.add(id);
-
-    normalized.push({
-      id,
-      type: post.type || "livre",
-      title: post.title || "Sem título",
-      date: post.date || new Date().toISOString().slice(0, 10),
-      rating: post.rating ?? null,
-      km: post.km ?? null,
-      content: post.content || post.review || post.text || ""
-    });
-  }
-
-  return normalized;
 }
 
 function savePosts() {
-
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.posts));
 }
